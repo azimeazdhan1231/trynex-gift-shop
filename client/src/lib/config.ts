@@ -1,13 +1,13 @@
+// API Configuration - Always use Render backend for deployed version
+const RENDER_BACKEND_URL = "https://trynex-backend-32fp.onrender.com";
 
-// API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://trynex-backend-32fp.onrender.com';
-
-export function getApiUrl(path: string = ''): string {
-  return `${API_BASE_URL}${path}`;
+export function getApiUrl(path: string = ""): string {
+  const fullUrl = `${RENDER_BACKEND_URL}${path}`;
+  console.log("🔧 API Config: Using Render backend:", fullUrl);
+  return fullUrl;
 }
 
-export const API_CONFIG = {
-  baseUrl: API_BASE_URL,
-  timeout: 10000,
-  retries: 3
+export const apiConfig = {
+  baseUrl: RENDER_BACKEND_URL,
+  timeout: 15000,
 };
