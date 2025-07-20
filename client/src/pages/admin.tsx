@@ -52,17 +52,31 @@ export default function Admin() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Fetch data
-  const { data: products } = useQuery<Product[]>({
-    queryKey: ["/api/products"],
+  const { data: products, isLoading: productsLoading, refetch: refetchProducts } = useQuery<Product[]>({
+    queryKey: ["products"],
+    queryFn: async () => {
+      const response = await fetch('/api/products');
+      if (!response.ok) throw new Error('Failed to fetch products');
+      return response.json();
+    }
   });
 
-  const { data: orders } = useQuery<Order[]>({
-    queryKey: ["/api/orders"],
+  const { data: orders, isLoading: ordersLoading, refetch: refetchOrders } = useQuery<Order[]>({
+    queryKey: ["orders"],
+    queryFn: async () => {
+      const response = await fetch('/api/orders');
+      if (!response.ok) throw new Error('Failed to fetch orders');
+      return response.json();
+    }
   });
 
-  const { data: promoCodes } = useQuery<PromoCode[]>({
-    queryKey: ["/api/promo-codes"],
+  const { data: promoCodes, isLoading: promoCodesLoading, refetch: refetchPromoCodes } = useQuery<PromoCode[]>({
+    queryKey: ["promo-codes"],
+    queryFn: async () => {
+      const response = await fetch('/api/promo-codes');
+      if (!response.ok) throw new Error('Failed to fetch promo codes');
+      return response.json();
+    }
   });
 
   // Mutations
@@ -173,7 +187,7 @@ export default function Admin() {
 
   const handleProductSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const productData: InsertProduct = {
       ...productForm,
       price: productForm.price * 100, // Convert to paisa
@@ -200,7 +214,7 @@ export default function Admin() {
 
   const handlePromoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const promoData: InsertPromoCode = {
       ...promoForm,
       minOrder: promoForm.minOrder * 100 // Convert to paisa
@@ -263,7 +277,7 @@ export default function Admin() {
                 </p>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
@@ -276,7 +290,7 @@ export default function Admin() {
                 </p>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
@@ -289,7 +303,7 @@ export default function Admin() {
                 </p>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Promo Codes</CardTitle>
@@ -379,7 +393,7 @@ export default function Admin() {
                       />
                     </div>
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="description">Description (English)</Label>
                     <Textarea
@@ -389,7 +403,7 @@ export default function Admin() {
                       required
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="descriptionbn">Description (Bengali)</Label>
                     <Textarea
@@ -400,7 +414,7 @@ export default function Admin() {
                       className="font-bengali"
                     />
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="price">Price (BDT)</Label>
@@ -423,7 +437,7 @@ export default function Admin() {
                       />
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="category">Category (English)</Label>
@@ -445,7 +459,7 @@ export default function Admin() {
                       />
                     </div>
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="imageUrl">Image URL</Label>
                     <Input
@@ -455,7 +469,7 @@ export default function Admin() {
                       required
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="variants">Variants (JSON format)</Label>
                     <Textarea
@@ -465,7 +479,7 @@ export default function Admin() {
                       placeholder='{"sizes": ["S", "M", "L"], "colors": ["red", "blue"]}'
                     />
                   </div>
-                  
+
                   <div className="flex items-center space-x-4">
                     <div className="flex items-center space-x-2">
                       <Switch
@@ -484,7 +498,7 @@ export default function Admin() {
                       <Label htmlFor="isFeatured">Featured</Label>
                     </div>
                   </div>
-                  
+
                   <div className="flex justify-end space-x-2">
                     <Button type="button" variant="outline" onClick={() => setIsProductDialogOpen(false)}>
                       Cancel
@@ -649,7 +663,7 @@ export default function Admin() {
                       required
                     />
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="discount">Discount (%)</Label>
@@ -674,7 +688,7 @@ export default function Admin() {
                       />
                     </div>
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="expiresAt">Expires At (Optional)</Label>
                     <Input
@@ -683,7 +697,7 @@ export default function Admin() {
                       onChange={(e) => setPromoForm({...promoForm, expiresAt: e.target.value ? new Date(e.target.value) : null})}
                     />
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="isActive"
@@ -692,7 +706,7 @@ export default function Admin() {
                     />
                     <Label htmlFor="isActive">Active</Label>
                   </div>
-                  
+
                   <div className="flex justify-end space-x-2">
                     <Button type="button" variant="outline" onClick={() => setIsPromoDialogOpen(false)}>
                       Cancel

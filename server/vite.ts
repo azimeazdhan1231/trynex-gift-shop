@@ -1,9 +1,9 @@
+
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
-import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
@@ -19,12 +19,65 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+// Create a dynamic vite config for server use
+async function getViteConfig() {
+  const { defineConfig } = await import("vite");
+  const react = await import("@vitejs/plugin-react").then(m => m.default);
+  
+  // Helper function to load Replit plugins only in development
+  async function getReplitPlugins() {
+    if (process.env.NODE_ENV === "production" || !process.env.REPL_ID) {
+      return [];
+    }
+    
+    try {
+      const [errorModal, cartographer] = await Promise.all([
+        import("@replit/vite-plugin-runtime-error-modal").then(m => m.default()),
+        import("@replit/vite-plugin-cartographer").then(m => m.cartographer()),
+      ]);
+      return [errorModal, cartographer];
+    } catch (error) {
+      console.warn("Replit plugins not available:", error);
+      return [];
+    }
+  }
+
+  const replitPlugins = await getReplitPlugins();
+  
+  return defineConfig({
+    plugins: [
+      react(),
+      ...replitPlugins,
+    ],
+    resolve: {
+      alias: {
+        "@": path.resolve(import.meta.dirname, "..", "client", "src"),
+        "@shared": path.resolve(import.meta.dirname, "..", "shared"),
+        "@assets": path.resolve(import.meta.dirname, "..", "attached_assets"),
+      },
+    },
+    root: path.resolve(import.meta.dirname, "..", "client"),
+    build: {
+      outDir: path.resolve(import.meta.dirname, "..", "dist/public"),
+      emptyOutDir: true,
+    },
+    server: {
+      fs: {
+        strict: true,
+        deny: ["**/.*"],
+      },
+    },
+  });
+}
+
 export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
     allowedHosts: true as const,
   };
+
+  const viteConfig = await getViteConfig();
 
   const vite = await createViteServer({
     ...viteConfig,
@@ -68,18 +121,13 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
-
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
+  const dist = path.resolve(import.meta.dirname, "..", "dist");
+  const publicPath = path.join(dist, "public");
+  
+  if (fs.existsSync(publicPath)) {
+    app.use(express.static(publicPath));
+    app.get("*", (_req, res) => {
+      res.sendFile(path.join(publicPath, "index.html"));
+    });
   }
-
-  app.use(express.static(distPath));
-
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
-  });
 }

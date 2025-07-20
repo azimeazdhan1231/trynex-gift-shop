@@ -15,7 +15,14 @@ export default function TrackOrder() {
   const { toast } = useToast();
 
   const { data: order, isLoading, error } = useQuery<Order>({
-    queryKey: ["/api/orders", searchOrderId],
+    queryKey: ["order", searchOrderId],
+    queryFn: async () => {
+      const response = await fetch(`/api/orders/${searchOrderId}`);
+      if (!response.ok) {
+        throw new Error('Order not found');
+      }
+      return response.json();
+    },
     enabled: !!searchOrderId,
     retry: false
   });
