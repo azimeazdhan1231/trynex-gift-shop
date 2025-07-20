@@ -50,13 +50,16 @@ app.use(cors({
     'http://localhost:3000', 
     'http://localhost:5000',
     'https://trynex-gift-shop.netlify.app',
+    'https://dapper-biscochitos-7e14c3.netlify.app',
     /\.netlify\.app$/,
     /\.vercel\.app$/,
-    /\.replit\.dev$/
+    /\.replit\.dev$/,
+    /\.replit\.co$/
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200
 }));
 
 app.use(express.static("dist"));

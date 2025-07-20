@@ -101,8 +101,16 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async createOrder(order: InsertOrder): Promise<Order> {
-    const result = await db.insert(orders).values(order).returning();
+  async createOrder(orderData: InsertOrder): Promise<Order> {
+    // Generate a unique order ID if not provided
+    if (!orderData.orderId) {
+      const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const timestamp = Date.now().toString().slice(-6);
+      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+      orderData.orderId = `TRY-${today}-${timestamp}-${random}`;
+    }
+
+    const result = await db.insert(orders).values(orderData).returning();
     return result[0];
   }
 
