@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -10,9 +11,11 @@ import Admin from "@/pages/admin";
 import TrackOrder from "@/pages/track-order";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
-import CartModal from "@/components/cart-modal";
+import { CartModal } from "@/components/cart-modal";
 
 function Router() {
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -24,7 +27,7 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
       <Footer />
-      <CartModal />
+      <CartModal isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </div>
   );
 }
