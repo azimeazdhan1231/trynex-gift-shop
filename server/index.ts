@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from "cors";
+import { registerRoutes } from './routes.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -44,6 +45,24 @@ async function startServer() {
     app.use('*', (req, res) => {
       console.log(`404 - Route not found: ${req.method} ${req.originalUrl}`);
       res.status(404).json({ error: 'Route not found' });
+    });
+
+    // Handle port conflicts
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.log(`Port ${PORT} is busy, trying ${parseInt(PORT) + 1}...`);
+        const newPort = parseInt(PORT) + 1;
+        server.listen(newPort, '0.0.0.0', () => {
+          console.log(`🚀 Server running on port ${newPort}`);
+          console.log(`📡 API available at http://0.0.0.0:${newPort}/api`);
+          console.log(`🔗 Health check: http://0.0.0.0:${newPort}/api/health`);
+          console.log(`🔗 Test DB: http://0.0.0.0:${newPort}/api/test-db`);
+          console.log(`🔗 Products: http://0.0.0.0:${newPort}/api/products`);
+        });
+      } else {
+        console.error('❌ Server error:', err);
+        process.exit(1);
+      }
     });
 
     // Start the server on 0.0.0.0 for external access

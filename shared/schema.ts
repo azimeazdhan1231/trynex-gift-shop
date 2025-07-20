@@ -1,97 +1,152 @@
-import { pgTable, serial, text, integer, boolean, timestamp, jsonb } from 'drizzle-orm/pg-core';
 
-export const products = pgTable('products', {
-  id: serial('id').primaryKey(),
-  name: text('name').notNull(),
-  namebn: text('name_bn'),
-  description: text('description'),
-  descriptionbn: text('description_bn'),
-  price: integer('price').notNull(), // in paisa
-  category: text('category').notNull(),
-  categorybn: text('category_bn'),
-  imageUrl: text('image_url'),
-  stock: integer('stock').default(100),
-  isActive: boolean('is_active').default(true),
-  isFeatured: boolean('is_featured').default(false),
-  tags: text('tags'), // JSON string
-  variants: jsonb('variants'),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow()
-});
-
-export const orders = pgTable('orders', {
-  id: serial('id').primaryKey(),
-  orderId: text('order_id').notNull().unique(),
-  customerName: text('customer_name').notNull(),
-  customerPhone: text('customer_phone').notNull(),
-  customerAddress: text('customer_address').notNull(),
-  items: text('items').notNull(), // JSON string
-  subtotal: integer('subtotal').notNull(),
-  deliveryFee: integer('delivery_fee').notNull(),
-  total: integer('total').notNull(),
-  paymentMethod: text('payment_method').notNull(),
-  deliveryLocation: text('delivery_location').notNull(),
-  specialInstructions: text('special_instructions'),
-  status: text('status').default('pending'),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow()
-});
-
-export const promoCodes = pgTable('promo_codes', {
-  id: serial('id').primaryKey(),
-  code: text('code').notNull().unique(),
-  discount: integer('discount').notNull(),
-  minOrder: integer('min_order').notNull(),
-  isActive: boolean('is_active').default(true),
-  expiresAt: timestamp('expires_at'),
-  createdAt: timestamp('created_at').defaultNow()
-});
-
-export const adminUsers = pgTable('admin_users', {
-  id: serial('id').primaryKey(),
-  username: text('username').notNull().unique(),
-  password: text('password').notNull(),
-  createdAt: timestamp('created_at').defaultNow()
-});
-
+import { pgTable, serial, text, integer, boolean, timestamp, jsonb, varchar } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const insertProductSchema = createInsertSchema(products).omit({
+// Products table
+export const products = pgTable('products', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  namebn: varchar('name_bn', { length: 255 }),
+  description: text('description'),
+  descriptionbn: text('description_bn'),
+  price: integer('price').notNull(), // Price in paisa
+  category: varchar('category', { length: 100 }).notNull(),
+  categorybn: varchar('category_bn', { length: 100 }),
+  imageUrl: varchar('image_url', { length: 500 }),
+  stock: integer('stock').default(100),
+  isActive: boolean('is_active').default(true),
+  isFeatured: boolean('is_featured').default(false),
+  tags: jsonb('tags').default([]),
+  variants: jsonb('variants').default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
+});
+
+// Orders table
+export const orders = pgTable('orders', {
+  id: serial('id').primaryKey(),
+  orderId: varchar('order_id', { length: 50 }).notNull().unique(),
+  customerName: varchar('customer_name', { length: 255 }).notNull(),
+  customerPhone: varchar('customer_phone', { length: 20 }).notNull(),
+  customerEmail: varchar('customer_email', { length: 255 }),
+  customerAddress: text('customer_address').notNull(),
+  deliveryLocation: varchar('delivery_location', { length: 255 }).default('dhaka'),
+  paymentMethod: varchar('payment_method', { length: 100 }).default('cash_on_delivery'),
+  specialInstructions: text('special_instructions'),
+  promoCode: varchar('promo_code', { length: 50 }),
+  subtotal: integer('subtotal').notNull().default(0),
+  deliveryFee: integer('delivery_fee').default(6000),
+  discountAmount: integer('discount_amount').default(0),
+  totalAmount: integer('total_amount').notNull(),
+  status: varchar('status', { length: 50 }).default('pending'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
+});
+
+// Order items table
+export const orderItems = pgTable('order_items', {
+  id: serial('id').primaryKey(),
+  orderId: varchar('order_id', { length: 50 }).notNull(),
+  productId: integer('product_id').notNull(),
+  productName: varchar('product_name', { length: 255 }).notNull(),
+  quantity: integer('quantity').notNull(),
+  unitPrice: integer('unit_price').notNull(),
+  totalPrice: integer('total_price').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow()
+});
+
+// Promo codes table
+export const promoCodes = pgTable('promo_codes', {
+  id: serial('id').primaryKey(),
+  code: varchar('code', { length: 50 }).notNull().unique(),
+  discountPercentage: integer('discount_percentage').notNull(),
+  minOrderAmount: integer('min_order_amount').default(0),
+  maxDiscountAmount: integer('max_discount_amount'),
+  isActive: boolean('is_active').default(true),
+  usageCount: integer('usage_count').default(0),
+  maxUsage: integer('max_usage'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
+});
+
+// Admin users table
+export const adminUsers = pgTable('admin_users', {
+  id: serial('id').primaryKey(),
+  username: varchar('username', { length: 100 }).notNull().unique(),
+  password: varchar('password', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }),
+  fullName: varchar('full_name', { length: 255 }),
+  isActive: boolean('is_active').default(true),
+  lastLogin: timestamp('last_login', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
+});
+
+// Zod schemas for validation
+export const insertProductSchema = createInsertSchema(products, {
+  name: z.string().min(1, "Product name is required"),
+  price: z.number().min(1, "Price must be greater than 0"),
+  category: z.string().min(1, "Category is required"),
+  stock: z.number().min(0, "Stock cannot be negative"),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true
 });
 
-export const insertOrderSchema = createInsertSchema(orders).omit({
+export const insertOrderSchema = createInsertSchema(orders, {
+  orderId: z.string().min(1, "Order ID is required"),
+  customerName: z.string().min(1, "Customer name is required"),
+  customerPhone: z.string().min(1, "Customer phone is required"),
+  customerAddress: z.string().min(1, "Customer address is required"),
+  totalAmount: z.number().min(0, "Total amount cannot be negative"),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true
-}).extend({
-  orderId: z.string().min(1),
-  customerName: z.string().min(1),
-  customerPhone: z.string().min(1),
-  customerAddress: z.string().min(1),
-  totalAmount: z.number().min(0),
-  finalAmount: z.number().min(0),
-  items: z.array(z.any()).optional()
 });
 
-export const insertPromoCodeSchema = createInsertSchema(promoCodes).omit({
+export const insertOrderItemSchema = createInsertSchema(orderItems, {
+  orderId: z.string().min(1, "Order ID is required"),
+  productId: z.number().min(1, "Product ID is required"),
+  productName: z.string().min(1, "Product name is required"),
+  quantity: z.number().min(1, "Quantity must be at least 1"),
+  unitPrice: z.number().min(0, "Unit price cannot be negative"),
+  totalPrice: z.number().min(0, "Total price cannot be negative"),
+}).omit({
   id: true,
   createdAt: true
 });
 
-export const insertAdminUserSchema = createInsertSchema(adminUsers).omit({
+export const insertPromoCodeSchema = createInsertSchema(promoCodes, {
+  code: z.string().min(1, "Promo code is required"),
+  discountPercentage: z.number().min(0).max(100, "Discount must be between 0-100%"),
+  minOrderAmount: z.number().min(0, "Minimum order amount cannot be negative"),
+}).omit({
   id: true,
-  createdAt: true
+  createdAt: true,
+  updatedAt: true
 });
 
-export type InsertProduct = z.infer<typeof insertProductSchema>;
+export const insertAdminUserSchema = createInsertSchema(adminUsers, {
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+// Type exports
 export type Product = typeof products.$inferSelect;
-export type InsertOrder = z.infer<typeof insertOrderSchema>;
+export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Order = typeof orders.$inferSelect;
-export type InsertPromoCode = z.infer<typeof insertPromoCodeSchema>;
+export type InsertOrder = z.infer<typeof insertOrderSchema>;
+export type OrderItem = typeof orderItems.$inferSelect;
+export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 export type PromoCode = typeof promoCodes.$inferSelect;
-export type InsertAdminUser = z.infer<typeof insertAdminUserSchema>;
+export type InsertPromoCode = z.infer<typeof insertPromoCodeSchema>;
 export type AdminUser = typeof adminUsers.$inferSelect;
+export type InsertAdminUser = z.infer<typeof insertAdminUserSchema>;

@@ -3,13 +3,14 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { products, orders, promoCodes } from "../shared/schema.js";
-import { eq, desc, like, ilike } from 'drizzle-orm';
+import { products, orders, orderItems, promoCodes } from "../shared/schema.js";
+import { eq, desc, like, ilike, and } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { insertProductSchema, insertOrderSchema, insertPromoCodeSchema } from "@shared/schema";
+import { insertProductSchema, insertOrderSchema, insertOrderItemSchema } from "@shared/schema";
 import { z } from "zod";
+import cors from 'cors';
 
-// Supabase connection with improved configuration
+// Supabase connection
 const connectionString = process.env.DATABASE_URL || "postgresql://postgres.wifsqonbnfmwtqvupqbk:Amits@12345@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres";
 
 console.log('🔗 Connecting to Supabase...');
@@ -20,7 +21,7 @@ const client = postgres(connectionString, {
   connection: {
     application_name: 'trynex_backend'
   },
-  onnotice: () => {}, // Suppress notices
+  onnotice: () => {},
 });
 
 const db = drizzle(client);
@@ -28,17 +29,16 @@ const db = drizzle(client);
 export async function registerRoutes(app: Express): Promise<Server> {
   console.log('📋 Setting up API routes...');
 
-  // Add CORS headers for all routes
-  app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    if (req.method === 'OPTIONS') {
-      res.sendStatus(200);
-    } else {
-      next();
-    }
-  });
+  // CORS configuration
+  app.use(cors({
+    origin: ['https://trynex-gift-shop.netlify.app', 'http://localhost:5173', 'https://localhost:5173', /\.replit\.dev$/],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control'],
+    exposedHeaders: ['Content-Length', 'X-Requested-With'],
+    preflightContinue: false,
+    optionsSuccessStatus: 200
+  }));
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {
@@ -47,7 +47,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       status: 'OK', 
       timestamp: new Date().toISOString(),
       database: 'Connected',
-      version: '1.0.0'
+      version: '2.0.0'
     });
   });
 
@@ -75,23 +75,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products", async (req, res) => {
     try {
       console.log('📦 Fetching products...');
-      const { category, search, featured } = req.query;
-      
+      const { category, search, featured, limit } = req.query;
+
       let query = db.select().from(products).where(eq(products.isActive, true));
-      
+
       if (category && category !== 'all') {
         query = query.where(eq(products.category, category as string));
       }
-      
+
       if (search) {
         query = query.where(ilike(products.name, `%${search as string}%`));
       }
-      
+
       if (featured === 'true') {
         query = query.where(eq(products.isFeatured, true));
       }
-      
-      const allProducts = await query;
+
+      if (limit) {
+        query = query.limit(parseInt(limit as string));
+      }
+
+      const allProducts = await query.orderBy(desc(products.createdAt));
       console.log(`✅ Found ${allProducts.length} products`);
       res.json(allProducts);
     } catch (error) {
@@ -108,8 +112,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('⭐ Fetching featured products...');
       const featuredProducts = await db.select()
         .from(products)
-        .where(eq(products.isFeatured, true))
-        .limit(12);
+        .where(and(eq(products.isFeatured, true), eq(products.isActive, true)))
+        .limit(12)
+        .orderBy(desc(products.createdAt));
       console.log(`✅ Found ${featuredProducts.length} featured products`);
       res.json(featuredProducts);
     } catch (error) {
@@ -124,16 +129,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(productId)) {
         return res.status(400).json({ error: 'Invalid product ID' });
       }
-      
+
       const product = await db.select()
         .from(products)
-        .where(eq(products.id, productId))
+        .where(and(eq(products.id, productId), eq(products.isActive, true)))
         .limit(1);
-      
+
       if (product.length === 0) {
         return res.status(404).json({ error: 'Product not found' });
       }
-      
+
       res.json(product[0]);
     } catch (error) {
       console.error('❌ Error fetching product:', error);
@@ -158,40 +163,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/products/:id", async (req, res) => {
     try {
-      console.log('🔄 Updating product:', req.params.id, req.body);
+      console.log('🔄 Updating product:', req.params.id);
       const id = parseInt(req.params.id);
-      
+
       if (isNaN(id)) {
         return res.status(400).json({ error: "Invalid product ID" });
       }
 
-      // Transform the data to match database schema
       const productData = {
         name: req.body.name,
         namebn: req.body.namebn,
         description: req.body.description,
         descriptionbn: req.body.descriptionbn,
-        price: parseInt(req.body.price) * 100, // Convert BDT to paisa
+        price: parseInt(req.body.price),
         category: req.body.category,
         categorybn: req.body.categorybn,
         imageUrl: req.body.imageUrl,
         stock: parseInt(req.body.stock),
-        isActive: req.body.isActive,
-        isFeatured: req.body.isFeatured,
+        isActive: req.body.isActive !== undefined ? req.body.isActive : true,
+        isFeatured: req.body.isFeatured !== undefined ? req.body.isFeatured : false,
         tags: req.body.tags || [],
         variants: req.body.variants || {},
         updatedAt: new Date()
       };
-      
+
       const updatedProduct = await db.update(products)
         .set(productData)
         .where(eq(products.id, id))
         .returning();
-      
+
       if (updatedProduct.length === 0) {
         return res.status(404).json({ error: "Product not found" });
       }
-      
+
       console.log('✅ Product updated:', updatedProduct[0].name);
       res.json(updatedProduct[0]);
     } catch (error) {
@@ -206,16 +210,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/products/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      
+
       const deletedProduct = await db.update(products)
         .set({ isActive: false })
         .where(eq(products.id, id))
         .returning();
-      
+
       if (deletedProduct.length === 0) {
         return res.status(404).json({ error: "Product not found" });
       }
-      
+
       console.log('✅ Product deleted:', deletedProduct[0].name);
       res.json({ success: true });
     } catch (error) {
@@ -242,16 +246,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/orders/:orderId", async (req, res) => {
     try {
       const orderId = req.params.orderId;
+      
       const order = await db.select()
         .from(orders)
         .where(eq(orders.orderId, orderId))
         .limit(1);
-      
+
       if (order.length === 0) {
         return res.status(404).json({ error: "Order not found" });
       }
-      
-      res.json(order[0]);
+
+      // Get order items
+      const items = await db.select()
+        .from(orderItems)
+        .where(eq(orderItems.orderId, orderId));
+
+      res.json({
+        ...order[0],
+        items: items
+      });
     } catch (error) {
       console.error('❌ Error fetching order:', error);
       res.status(500).json({ error: "Failed to fetch order" });
@@ -264,19 +277,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const {
         customerName,
         customerPhone,
+        customerEmail,
         customerAddress,
         items,
         subtotal,
-        deliveryFee,
-        total,
-        paymentMethod,
-        deliveryLocation,
-        specialInstructions
+        deliveryFee = 6000,
+        totalAmount,
+        paymentMethod = 'cash_on_delivery',
+        deliveryLocation = 'dhaka',
+        specialInstructions,
+        promoCode
       } = req.body;
 
       // Validation
       if (!customerName || !customerPhone || !customerAddress || !items || !Array.isArray(items) || items.length === 0) {
-        console.log('❌ Missing required fields:', { customerName, customerPhone, customerAddress, items });
+        console.log('❌ Missing required fields');
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
@@ -285,25 +300,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('📝 Creating order:', orderId);
 
+      // Create order
       const orderData = {
         orderId,
         customerName,
         customerPhone,
+        customerEmail: customerEmail || null,
         customerAddress,
-        items: JSON.stringify(items),
+        deliveryLocation,
+        paymentMethod,
+        specialInstructions: specialInstructions || null,
+        promoCode: promoCode || null,
         subtotal: parseInt(subtotal) || 0,
-        deliveryFee: parseInt(deliveryFee) || 0,
-        total: parseInt(total) || 0,
-        paymentMethod: paymentMethod || 'cash_on_delivery',
-        deliveryLocation: deliveryLocation || 'dhaka',
-        specialInstructions: specialInstructions || '',
+        deliveryFee: parseInt(deliveryFee),
+        discountAmount: 0,
+        totalAmount: parseInt(totalAmount),
         status: 'pending'
       };
 
       const newOrder = await db.insert(orders).values(orderData).returning();
 
+      // Create order items
+      for (const item of items) {
+        const orderItemData = {
+          orderId,
+          productId: item.id,
+          productName: item.name,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          totalPrice: item.price * item.quantity
+        };
+
+        await db.insert(orderItems).values(orderItemData);
+      }
+
       console.log('✅ Order created successfully:', newOrder[0].orderId);
-      res.status(201).json(newOrder[0]);
+      res.status(201).json({
+        success: true,
+        orderId: newOrder[0].orderId,
+        message: 'Order placed successfully!',
+        order: newOrder[0]
+      });
     } catch (error) {
       console.error('❌ Order creation error:', error);
       res.status(500).json({ 
@@ -318,7 +355,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orderId = req.params.orderId;
       const { status } = req.body;
 
-      if (!status || !['pending', 'processing', 'shipped', 'delivered'].includes(status)) {
+      if (!status || !['pending', 'processing', 'shipped', 'delivered', 'cancelled'].includes(status)) {
         return res.status(400).json({ error: "Invalid status" });
       }
 
@@ -326,11 +363,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .set({ status, updatedAt: new Date() })
         .where(eq(orders.orderId, orderId))
         .returning();
-      
+
       if (updatedOrder.length === 0) {
         return res.status(404).json({ error: "Order not found" });
       }
-      
+
       console.log('✅ Order status updated:', orderId, status);
       res.json(updatedOrder[0]);
     } catch (error) {
@@ -348,7 +385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).from(products)
       .where(eq(products.isActive, true))
       .groupBy(products.category, products.categorybn);
-      
+
       res.json(categories);
     } catch (error) {
       console.error('❌ Error fetching categories:', error);
@@ -359,28 +396,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Promo codes routes
   app.get("/api/promo-codes", async (req, res) => {
     try {
-      const promoCodes = await db.select()
+      const codes = await db.select()
         .from(promoCodes)
+        .where(eq(promoCodes.isActive, true))
         .orderBy(desc(promoCodes.createdAt));
-      res.json(promoCodes);
+      res.json(codes);
     } catch (error) {
       console.error('❌ Error fetching promo codes:', error);
       res.status(500).json({ error: "Failed to fetch promo codes" });
     }
   });
 
-  app.post("/api/promo-codes", async (req, res) => {
+  app.post("/api/promo-codes/validate", async (req, res) => {
     try {
-      const promoData = insertPromoCodeSchema.parse(req.body);
-      const newPromo = await db.insert(promoCodes).values(promoData).returning();
-      console.log('✅ Promo code created:', newPromo[0].code);
-      res.status(201).json(newPromo[0]);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid promo data", details: error.errors });
+      const { code, orderAmount } = req.body;
+      
+      if (!code) {
+        return res.status(400).json({ error: "Promo code is required" });
       }
-      console.error('❌ Error creating promo code:', error);
-      res.status(500).json({ error: "Failed to create promo code" });
+
+      const promoCode = await db.select()
+        .from(promoCodes)
+        .where(and(eq(promoCodes.code, code), eq(promoCodes.isActive, true)))
+        .limit(1);
+
+      if (promoCode.length === 0) {
+        return res.status(404).json({ error: "Invalid promo code" });
+      }
+
+      const promo = promoCode[0];
+
+      // Check if expired
+      if (promo.expiresAt && new Date() > promo.expiresAt) {
+        return res.status(400).json({ error: "Promo code has expired" });
+      }
+
+      // Check minimum order amount
+      if (orderAmount < promo.minOrderAmount) {
+        return res.status(400).json({ 
+          error: `Minimum order amount is ৳${promo.minOrderAmount / 100} to use this promo code` 
+        });
+      }
+
+      // Calculate discount
+      let discountAmount = Math.floor((orderAmount * promo.discountPercentage) / 100);
+      
+      // Apply maximum discount limit if set
+      if (promo.maxDiscountAmount && discountAmount > promo.maxDiscountAmount) {
+        discountAmount = promo.maxDiscountAmount;
+      }
+
+      res.json({
+        valid: true,
+        discountPercentage: promo.discountPercentage,
+        discountAmount,
+        code: promo.code
+      });
+    } catch (error) {
+      console.error('❌ Error validating promo code:', error);
+      res.status(500).json({ error: "Failed to validate promo code" });
     }
   });
 
