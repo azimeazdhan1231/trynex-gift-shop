@@ -1,4 +1,3 @@
-
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { toast } from "@/hooks/use-toast";
@@ -18,7 +17,7 @@ interface CartStore {
   items: CartItem[];
   isOpen: boolean;
   isLoading: boolean;
-  
+
   // Cart actions
   addItem: (product: any, quantity?: number, variant?: any) => void;
   removeItem: (id: number) => void;
@@ -26,13 +25,15 @@ interface CartStore {
   clearCart: () => void;
   toggleCart: () => void;
   setIsOpen: (isOpen: boolean) => void;
-  
+
   // Order actions
   placeOrder: (orderDetails: any) => Promise<{ success: boolean; orderId?: string; error?: string }>;
-  
+
   // Computed values
   getTotalItems: () => number;
   getTotalPrice: () => number;
+  getTotal: () => number;
+  getSubtotal: () => number;
 }
 
 export const useCartStore = create<CartStore>()(
@@ -66,7 +67,7 @@ export const useCartStore = create<CartStore>()(
             return { items: [...state.items, newItem] };
           }
         });
-        
+
         toast({
           title: "Added to cart",
           description: `${product.namebn || product.name} has been added to your cart.`,
@@ -77,7 +78,7 @@ export const useCartStore = create<CartStore>()(
         set((state) => ({
           items: state.items.filter((item) => item.id !== id)
         }));
-        
+
         toast({
           title: "Removed from cart",
           description: "Item has been removed from your cart.",
@@ -110,13 +111,19 @@ export const useCartStore = create<CartStore>()(
       },
 
       placeOrder: async (orderDetails) => {
+        console.log("🛒 Starting order placement process...");
         set({ isLoading: true });
-        
+
         try {
           const { items } = get();
-          
+
           if (items.length === 0) {
             throw new Error("Cart is empty");
+          }
+
+          // Validate required fields
+          if (!orderDetails.customerName || !orderDetails.customerPhone || !orderDetails.customerAddress) {
+            throw new Error("Missing required fields: name, phone, and address are required");
           }
 
           // Calculate totals
@@ -125,71 +132,93 @@ export const useCartStore = create<CartStore>()(
           const discountAmount = orderDetails.discountAmount || 0;
           const totalAmount = subtotal + deliveryFee - discountAmount;
 
+          // Generate order ID
+          const orderId = `TXR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+
           const orderData = {
-            customerName: orderDetails.customerName,
-            customerPhone: orderDetails.customerPhone,
-            customerAddress: orderDetails.customerAddress,
-            customerEmail: orderDetails.customerEmail || null,
-            deliveryLocation: orderDetails.deliveryLocation || null,
+            id: crypto.randomUUID(),
+            orderId: orderId,
+            customerName: orderDetails.customerName.trim(),
+            customerPhone: orderDetails.customerPhone.trim(),
+            customerAddress: orderDetails.customerAddress.trim(),
+            customerEmail: orderDetails.customerEmail?.trim() || null,
+            deliveryLocation: orderDetails.deliveryLocation?.trim() || null,
             paymentMethod: orderDetails.paymentMethod || 'cash_on_delivery',
-            specialInstructions: orderDetails.specialInstructions || null,
-            promoCode: orderDetails.promoCode || null,
+            specialInstructions: orderDetails.specialInstructions?.trim() || null,
+            promoCode: orderDetails.promoCode?.trim() || null,
             items: items.map(item => ({
               id: item.id,
               name: item.name,
               namebn: item.namebn,
               price: item.price,
               quantity: item.quantity,
-              variant: item.variant
+              variant: item.variant || null
             })),
             subtotal,
             deliveryFee,
             discountAmount,
             totalAmount,
-            finalAmount: totalAmount
+            finalAmount: totalAmount,
+            status: 'pending'
           };
 
-          console.log("Placing order with data:", orderData);
+          console.log("📦 Placing order with data:", orderData);
 
           const response = await fetch(getApiUrl('/api/orders'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Accept': 'application/json'
             },
             body: JSON.stringify(orderData)
           });
 
+          console.log("📡 Order API response status:", response.status);
+
           if (!response.ok) {
-            const errorData = await response.json().catch(() => null);
-            throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
+            const errorText = await response.text();
+            console.error("❌ Order API error response:", errorText);
+
+            let errorMessage = `HTTP error! status: ${response.status}`;
+            try {
+              const errorData = JSON.parse(errorText);
+              errorMessage = errorData.error || errorMessage;
+            } catch (e) {
+              // If it's not JSON, use the text as error message
+              errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
           }
 
           const result = await response.json();
-          
-          if (result.success) {
+          console.log("✅ Order API success response:", result);
+
+          if (result.success && result.orderId) {
             // Clear cart on successful order
             get().clearCart();
-            
+
             toast({
-              title: "Order placed successfully!",
-              description: `Your order ${result.orderId} has been placed.`,
+              title: "Order placed successfully! 🎉",
+              description: `Your order ${result.orderId} has been placed successfully. You will receive a confirmation call soon.`,
             });
-            
+
             return { success: true, orderId: result.orderId };
           } else {
-            throw new Error(result.error || "Failed to place order");
+            throw new Error(result.error || "Order placement failed");
           }
-          
+
         } catch (error) {
-          console.error("Error placing order:", error);
-          
+          console.error("❌ Error placing order:", error);
+
+          const errorMessage = error.message || "Failed to place order. Please try again.";
+
           toast({
-            title: "Order failed",
-            description: error.message || "Failed to place order. Please try again.",
+            title: "Order failed ❌",
+            description: errorMessage,
             variant: "destructive",
           });
-          
-          return { success: false, error: error.message };
+
+          return { success: false, error: errorMessage };
         } finally {
           set({ isLoading: false });
         }
@@ -203,6 +232,14 @@ export const useCartStore = create<CartStore>()(
       getTotalPrice: () => {
         const { items } = get();
         return items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      },
+
+      getTotal: () => {
+        return get().getTotalPrice();
+      },
+
+      getSubtotal: () => {
+        return get().getTotalPrice();
       },
     }),
     {

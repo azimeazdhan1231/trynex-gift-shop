@@ -1,23 +1,18 @@
 
+// API Configuration
+const isDevelopment = import.meta.env.DEV;
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-// API Configuration for Render backend
-const isDevelopment = import.meta.env.MODE === 'development';
-const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-// Your Render backend URL
-const RENDER_BACKEND_URL = 'https://trynex-backend-32fp.onrender.com';
-
-export function getApiUrl(endpoint: string): string {
-  // For local development, use localhost
-  if (isDevelopment && isLocal) {
-    const baseUrl = 'http://localhost:5000';
-    console.log(`🎯 Fetching ${endpoint.replace('/api/', '')} from:`, `${baseUrl}${endpoint}`);
-    return `${baseUrl}${endpoint}`;
-  }
-
-  // For production (Netlify deployment), use Render backend
-  console.log(`🎯 Fetching ${endpoint.replace('/api/', '')} from:`, `${RENDER_BACKEND_URL}${endpoint}`);
-  return `${RENDER_BACKEND_URL}${endpoint}`;
+export function getApiUrl(path: string): string {
+  // Remove leading slash if present to avoid double slashes
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+  return `${API_BASE_URL}/${cleanPath}`;
 }
 
-export const API_BASE_URL = isDevelopment && isLocal ? 'http://localhost:5000' : RENDER_BACKEND_URL;
+// Export for debugging
+export const config = {
+  apiUrl: API_BASE_URL,
+  isDevelopment
+};
+
+console.log('🔧 API Configuration:', config);

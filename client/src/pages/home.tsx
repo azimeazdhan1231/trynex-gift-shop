@@ -20,7 +20,12 @@ export default function Home() {
       if (import.meta.env.DEV) {
         console.log('🎯 Fetching featured products from:', url);
       }
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       if (!response.ok) {
         if (import.meta.env.DEV) {
           console.error('❌ Failed to fetch featured products:', response.status, response.statusText);
@@ -33,7 +38,11 @@ export default function Home() {
       }
       return data;
     },
-    enabled: typeof window !== 'undefined' // Only run in browser, not during SSR
+    enabled: typeof window !== 'undefined',
+    staleTime: 0,
+    cacheTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
   });
 
   const { data: latestProducts, isLoading: latestLoading, error: latestError } = useQuery<Product[]>({
@@ -43,7 +52,12 @@ export default function Home() {
       if (import.meta.env.DEV) {
         console.log('🎯 Fetching latest products from:', url);
       }
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       if (!response.ok) {
         if (import.meta.env.DEV) {
           console.error('❌ Failed to fetch latest products:', response.status, response.statusText);
@@ -56,9 +70,12 @@ export default function Home() {
       }
       return data;
     },
-    enabled: typeof window !== 'undefined', // Only run in browser, not during SSR
+    enabled: typeof window !== 'undefined',
     retry: 1,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0, // Always fetch fresh data
+    cacheTime: 0, // Don't cache
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
   });
 
   // Fetch all products for categories
