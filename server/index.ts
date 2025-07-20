@@ -1,67 +1,29 @@
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { setupVite, serveStatic } from "./vite";
+import { storage } from "./storage";
 
 const app = express();
 
-// CORS configuration for frontend
-app.use((req, res, next) => {
-  const allowedOrigins = [
-    'https://trynex-gift-shop.netlify.app',
+// Configure CORS
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000', 
     'http://localhost:5000',
-    'https://replit.dev',
-    'https://*.replit.dev',
-    process.env.FRONTEND_URL
-  ].filter(Boolean);
-
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-    res.header('Access-Control-Allow-Origin', origin || '*');
-  }
-
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
-  }
-});
+    'https://trynex-gift-shop.netlify.app',
+    /\.netlify\.app$/,
+    /\.vercel\.app$/,
+    /\.replit\.dev$/
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-    }
-  });
-
-  next();
-});
+app.use(express.static("dist"));
 
 (async () => {
   const port = parseInt(process.env.PORT || '3001', 10);
@@ -83,8 +45,9 @@ app.use((req, res, next) => {
   });
 
   server.listen(port, '0.0.0.0', () => {
-    log(`Server running on http://0.0.0.0:${port}`);
-    log(`API available at http://0.0.0.0:${port}/api`);
+    console.log(`🚀 Server running on http://0.0.0.0:${port}`);
+    console.log(`📊 Database connected successfully`);
+    console.log(`🌐 API endpoints available at http://0.0.0.0:${port}/api`);
   });
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
