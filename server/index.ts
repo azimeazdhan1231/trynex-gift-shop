@@ -1,3 +1,4 @@
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
@@ -11,7 +12,7 @@ const DATABASE_URL = process.env.DATABASE_URL || "postgresql://postgres.wifsqonb
 
 console.log('🔗 Database connecting to:', DATABASE_URL.replace(/:[^:@]*@/, ':****@'));
 
-// Configure CORS properly
+// Configure CORS for Render + Netlify deployment
 app.use(cors({
   origin: [
     'http://localhost:5173',
@@ -22,8 +23,6 @@ app.use(cors({
     'https://trynex-backend-32fp.onrender.com',
     /\.netlify\.app$/,
     /\.vercel\.app$/,
-    /\.replit\.dev$/,
-    /\.repl\.co$/,
     /\.onrender\.com$/
   ],
   credentials: true,
