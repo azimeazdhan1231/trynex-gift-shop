@@ -125,10 +125,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Ensure items is an array and calculate amounts properly
       const items = Array.isArray(req.body.items) ? req.body.items : [];
-      const subtotal = req.body.subtotal || req.body.totalAmount || 0;
+      const totalAmount = req.body.totalAmount || 0;
       const deliveryFee = req.body.deliveryFee || 0;
       const discountAmount = req.body.discountAmount || 0;
-      const finalAmount = req.body.total || (subtotal + deliveryFee - discountAmount);
+      const finalAmount = req.body.finalAmount || (totalAmount + deliveryFee - discountAmount);
 
       const orderData = {
         orderId,
@@ -141,7 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         specialInstructions: req.body.specialInstructions || null,
         promoCode: req.body.promoCode || null,
         items: items,
-        totalAmount: Math.round(subtotal),
+        totalAmount: Math.round(totalAmount),
         discountAmount: Math.round(discountAmount),
         deliveryFee: Math.round(deliveryFee),
         finalAmount: Math.round(finalAmount),

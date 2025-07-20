@@ -203,16 +203,15 @@ export default function CartModal() {
         customerName: orderForm.customerName,
         customerPhone: orderForm.customerPhone,
         customerAddress: `${orderForm.customerAddress}, ${selectedThana}, ${bangladeshLocations[selectedDistrict].name}`,
-        customerEmail: orderForm.customerName + "@example.com", // Add default email
+        customerEmail: orderForm.customerEmail || orderForm.customerName + "@example.com",
         deliveryLocation: `${selectedThana}, ${bangladeshLocations[selectedDistrict].name}`,
         paymentMethod: orderForm.paymentMethod,
         specialInstructions: orderForm.specialInstructions,
         promoCode: "",
-        totalAmount: total * 100, // Convert to paisa
+        totalAmount: subtotal,
         discountAmount: 0,
-        deliveryFee: deliveryFee * 100,
-        finalAmount: total * 100,
-        total: total * 100
+        deliveryFee: deliveryFee,
+        finalAmount: total
       };
 
       const response = await fetch(getApiUrl("/api/orders"), {
