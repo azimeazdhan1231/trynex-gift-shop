@@ -63,57 +63,63 @@ export default function HeroSlider() {
 
   return (
     <section className="relative overflow-hidden">
-      <div className="hero-slider relative h-[500px] md:h-[600px]">
+      <div className="hero-slider relative h-[600px] md:h-[700px] lg:h-[800px]">
         {slides.map((slide, index) => (
           <div
             key={slide.id}
-            className={`absolute inset-0 bg-gradient-to-r ${slide.backgroundColor} transition-opacity duration-500 ${
-              index === currentSlide ? 'opacity-100' : 'opacity-0'
+            className={`absolute inset-0 bg-gradient-to-r ${slide.backgroundColor} transition-all duration-1000 ease-in-out transform ${
+              index === currentSlide ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
             }`}
           >
-            <div className="absolute inset-0 bg-black bg-opacity-20"></div>
+            <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]"></div>
+            <div className="absolute inset-0">
+              <div className="absolute top-10 left-10 w-32 h-32 bg-white/10 rounded-full blur-xl animate-pulse"></div>
+              <div className="absolute bottom-20 right-20 w-48 h-48 bg-white/5 rounded-full blur-2xl animate-pulse delay-1000"></div>
+              <div className="absolute top-1/2 left-1/3 w-24 h-24 bg-white/8 rounded-full blur-lg animate-pulse delay-500"></div>
+            </div>
             <div className="container mx-auto px-4 h-full flex items-center relative z-10">
-              <div className="grid md:grid-cols-2 gap-8 items-center w-full">
-                <div className="text-white space-y-6">
-                  <h2 className="text-4xl md:text-6xl font-bold leading-tight animate-slide-up">
-                    {slide.title}
-                  </h2>
-                  <p className="text-xl md:text-2xl font-bengali opacity-90 animate-slide-up">
-                    {slide.subtitleBn}
-                  </p>
-                  <div className="flex flex-wrap gap-4 text-sm animate-fade-in">
-                    <span className="bg-white bg-opacity-20 px-4 py-2 rounded-full backdrop-blur">
-                      🌟 Exclusive Collection
-                    </span>
-                    <span className="bg-white bg-opacity-20 px-4 py-2 rounded-full backdrop-blur">
-                      100% Original Products
-                    </span>
-                    <span className="bg-white bg-opacity-20 px-4 py-2 rounded-full backdrop-blur">
-                      Fast Delivery
-                    </span>
+              <div className="grid lg:grid-cols-2 gap-12 items-center w-full">
+                <div className="text-white space-y-8 animate-fade-in-up">
+                  <div className="space-y-4">
+                    <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-none tracking-tight">
+                      <span className="block transform transition-all duration-1000 hover:scale-105">
+                        {slide.title}
+                      </span>
+                    </h1>
+                    <p className="text-2xl md:text-3xl lg:text-4xl font-bengali opacity-90 transform transition-all duration-1000 delay-200">
+                      {slide.titleBn}
+                    </p>
                   </div>
-                  <div className="flex flex-wrap gap-4">
-                    <Button 
-                      size="lg"
-                      className="bg-white text-gray-800 hover:bg-gray-100 font-bold px-8 py-3 rounded-full btn-hover"
-                    >
-                      SHOP NOW
+                  
+                  <div className="space-y-3 opacity-90">
+                    <p className="text-xl md:text-2xl lg:text-3xl font-light tracking-wide">
+                      {slide.subtitle}
+                    </p>
+                    <p className="text-xl md:text-2xl font-bengali font-light">
+                      {slide.subtitleBn}
+                    </p>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row gap-6 pt-8">
+                    <Button size="lg" className="bg-white text-gray-900 hover:bg-gray-100 font-bold text-lg px-8 py-4 rounded-full shadow-2xl transform transition-all duration-300 hover:scale-105 hover:shadow-3xl">
+                      এখনই কিনুন
                     </Button>
-                    <Button 
-                      variant="outline"
-                      size="lg"
-                      className="border-2 border-white text-white hover:bg-white hover:text-gray-800 font-bold px-8 py-3 rounded-full"
-                    >
+                    <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white hover:text-gray-900 font-semibold text-lg px-8 py-4 rounded-full backdrop-blur-sm transition-all duration-300 hover:scale-105">
                       View Collection
                     </Button>
                   </div>
                 </div>
-                <div className="hidden md:block">
-                  <img 
-                    src={slide.image} 
-                    alt={slide.title}
-                    className="w-full h-auto rounded-2xl shadow-2xl animate-float"
-                  />
+                
+                <div className="hidden lg:block relative">
+                  <div className="relative transform transition-all duration-1000 hover:scale-105">
+                    <div className="absolute inset-0 bg-white/20 rounded-3xl backdrop-blur-sm"></div>
+                    <img
+                      src={slide.image}
+                      alt={slide.title}
+                      className="w-full h-96 lg:h-[500px] object-cover rounded-3xl shadow-2xl border-4 border-white/20"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent rounded-3xl"></div>
+                  </div>
                 </div>
               </div>
             </div>

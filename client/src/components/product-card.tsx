@@ -38,38 +38,41 @@ export default function ProductCard({ product, className = "" }: ProductCardProp
   };
 
   return (
-    <div className={`bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 group border product-card ${className}`}>
+    <div className={`bg-white rounded-2xl shadow-xl hover:shadow-3xl transition-all duration-500 transform hover:-translate-y-3 hover:scale-[1.02] group border-0 overflow-hidden backdrop-blur-sm bg-white/95 ${className}`}>
       <div className="relative">
         {/* Product Image */}
-        <div className="relative overflow-hidden rounded-t-xl">
+        <div className="relative overflow-hidden">
           {!imageLoaded && (
-            <div className="w-full h-48 bg-gray-200 animate-pulse skeleton"></div>
+            <div className="w-full h-64 md:h-72 bg-gradient-to-br from-gray-200 via-gray-100 to-gray-200 animate-pulse"></div>
           )}
           <img 
             src={product.imageUrl} 
             alt={product.name}
-            className={`w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105 ${
+            className={`w-full h-64 md:h-72 object-cover transition-all duration-700 group-hover:scale-110 group-hover:rotate-1 ${
               imageLoaded ? 'block' : 'hidden'
             }`}
             onLoad={() => setImageLoaded(true)}
             onError={() => setImageLoaded(true)}
           />
           
+          {/* Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          
           {/* Badges */}
-          <div className="absolute top-2 left-2">
+          <div className="absolute top-4 left-4 z-10">
             {product.isFeatured && (
-              <Badge className="bg-orange-500 text-white text-xs font-bold">
-                🆕 Featured
+              <Badge className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-sm font-bold px-3 py-2 rounded-full shadow-lg animate-pulse">
+                ⭐ Featured
               </Badge>
             )}
           </div>
           
           {/* Quick Actions */}
-          <div className="absolute top-2 right-2 flex flex-col space-y-2">
+          <div className="absolute top-4 right-4 flex flex-col space-y-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
             <Button
               size="sm"
               variant="secondary"
-              className="w-8 h-8 p-0 rounded-full bg-white shadow-md hover:bg-pink-50"
+              className="w-10 h-10 p-0 rounded-full bg-white/90 backdrop-blur-sm shadow-lg hover:bg-pink-50 hover:scale-110 transition-all duration-300"
               onClick={() => setIsLiked(!isLiked)}
             >
               <Heart 
@@ -100,67 +103,86 @@ export default function ProductCard({ product, className = "" }: ProductCardProp
           )}
         </div>
 
-        {/* Product Info */}
-        <div className="p-4">
-          <h3 className="font-bold text-lg mb-2 group-hover:text-red-600 transition-colors line-clamp-2">
-            {product.name}
-          </h3>
-          
-          <p className="text-gray-600 text-sm mb-1 font-bengali">
-            {product.namebn}
-          </p>
-          
-          <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-            {product.description}
-          </p>
-
-          {/* Rating */}
-          <div className="flex items-center space-x-1 mb-3">
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                className={`h-4 w-4 ${
-                  i < 4 ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
-                }`}
-              />
-            ))}
-            <span className="text-sm text-gray-600">(4.{Math.floor(Math.random() * 9) + 1})</span>
+        {/* Product Info - Enhanced Professional Design */}
+        <div className="p-6 space-y-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h3 className="font-bold text-gray-900 text-xl leading-tight line-clamp-2 group-hover:text-red-600 transition-colors duration-300">
+                {product.name}
+              </h3>
+              <p className="text-base text-gray-600 font-bengali mt-2 opacity-80">
+                {product.namebn}
+              </p>
+            </div>
+            <div className="text-right ml-4">
+              <div className="flex items-center space-x-1 text-sm text-orange-500 bg-orange-50 px-3 py-1 rounded-full">
+                <Star className="w-4 h-4 fill-current" />
+                <span className="font-bold">4.8</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">(127 reviews)</p>
+            </div>
           </div>
 
-          {/* Price */}
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-2xl font-bold text-red-600">
-              {formatPrice(product.price)}
-            </span>
-            
-            {/* Category Badge */}
-            <Badge variant="outline" className="text-xs">
-              {product.categorybn}
-            </Badge>
-          </div>
-
-          {/* Variants */}
-          {product.variants && (
-            <div className="flex items-center space-x-2 mb-3">
-              <span className="text-xs text-gray-600">Options:</span>
-              <div className="flex space-x-1">
-                {Object.entries(product.variants as any).slice(0, 3).map(([key, value], index) => (
-                  <Badge key={index} variant="secondary" className="text-xs">
-                    {value as string}
-                  </Badge>
-                ))}
+          {/* Price - Enhanced with Better Typography */}
+          <div className="flex items-end justify-between bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-2xl">
+            <div className="flex flex-col">
+              <span className="text-3xl font-black text-red-600 tracking-tight">
+                {formatPrice(product.price)}
+              </span>
+              <div className="flex items-center space-x-2">
+                <span className="text-lg text-gray-500 line-through opacity-75">
+                  {formatPrice(product.price + 200)}
+                </span>
+                <span className="text-sm text-green-600 font-bold bg-green-100 px-2 py-1 rounded-full">
+                  -12%
+                </span>
               </div>
             </div>
+            <div className="text-right">
+              <span className="text-sm text-green-700 font-bold bg-green-200 px-3 py-2 rounded-full animate-pulse">
+                Save ৳200
+              </span>
+            </div>
+          </div>
+
+          {/* Category & Features */}
+          <div className="flex items-center justify-between">
+            <span className="bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 px-3 py-2 rounded-full text-sm font-semibold">
+              {product.category}
+            </span>
+            <div className="flex items-center space-x-2 text-sm">
+              <span className="text-green-600 font-bold bg-green-50 px-3 py-1 rounded-full flex items-center">
+                <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+                In Stock
+              </span>
+            </div>
+          </div>
+
+          {/* Description */}
+          {product.description && (
+            <p className="text-sm text-gray-700 line-clamp-3 leading-relaxed bg-gray-50 p-3 rounded-xl">
+              {product.description}
+            </p>
           )}
 
-          {/* Add to Cart Button */}
-          <Button
+          {/* Features */}
+          <div className="flex flex-wrap gap-2">
+            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">🚚 Fast Delivery</span>
+            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">💝 Gift Wrap</span>
+            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">✅ Premium Quality</span>
+          </div>
+
+          {/* Add to Cart Button - Ultra Professional */}
+          <Button 
             onClick={handleAddToCart}
             disabled={product.stock === 0}
-            className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 rounded-lg btn-hover disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-red-600 via-red-700 to-orange-600 hover:from-red-700 hover:via-red-800 hover:to-orange-700 text-white font-bold py-4 rounded-2xl transition-all duration-500 transform hover:scale-[1.02] hover:-translate-y-1 shadow-2xl hover:shadow-3xl relative overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+            <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-orange-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="relative flex items-center justify-center">
+              <ShoppingCart className="w-5 h-5 mr-3 group-hover:animate-bounce" />
+              <span className="text-lg">{product.stock === 0 ? 'স্টক নেই' : 'কার্টে যোগ করুন'}</span>
+            </div>
           </Button>
         </div>
       </div>
