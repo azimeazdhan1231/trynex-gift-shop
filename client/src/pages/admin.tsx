@@ -345,7 +345,7 @@ export default function Admin() {
                     <TableRow key={order.id}>
                       <TableCell className="font-medium">{order.orderId}</TableCell>
                       <TableCell>{order.customerName}</TableCell>
-                      <TableCell>{formatPrice(order.total)}</TableCell>
+                      <TableCell>{formatPrice(order.totalAmount)}</TableCell>
                       <TableCell>
                         <Badge variant={order.status === "delivered" ? "default" : "secondary"}>
                           {order.status}
@@ -609,7 +609,7 @@ export default function Admin() {
                         </div>
                       </TableCell>
                       <TableCell>{order.customerPhone}</TableCell>
-                      <TableCell>{formatPrice(order.total)}</TableCell>
+                      <TableCell>{formatPrice(order.totalAmount)}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{order.paymentMethod}</Badge>
                       </TableCell>
