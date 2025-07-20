@@ -108,19 +108,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const orderData = {
         orderId,
-        customerName: req.body.customer.name,
-        customerPhone: req.body.customer.phone,
-        customerAddress: req.body.customer.address,
-        items: req.body.items,
-        subtotal: req.body.subtotal,
-        deliveryFee: req.body.deliveryFee,
-        total: req.body.total,
-        paymentMethod: req.body.paymentMethod,
-        deliveryLocation: req.body.deliveryLocation,
+        customerName: req.body.customerName || "",
+        customerPhone: req.body.customerPhone || "",
+        customerAddress: req.body.customerAddress || "",
+        customerEmail: req.body.customerEmail || "",
+        deliveryLocation: req.body.deliveryLocation || "",
+        paymentMethod: req.body.paymentMethod || "",
         specialInstructions: req.body.specialInstructions || "",
+        promoCode: req.body.promoCode || "",
+        totalAmount: req.body.total || req.body.subtotal || 0,
+        discountAmount: req.body.discountAmount || 0,
+        deliveryFee: req.body.deliveryFee || 0,
+        finalAmount: req.body.total || (req.body.subtotal + req.body.deliveryFee) || 0,
         status: "pending"
       };
 
+      console.log("Order data being processed:", orderData);
+      
       const validatedOrder = insertOrderSchema.parse(orderData);
       const order = await storage.createOrder(validatedOrder);
       res.json({ ...order, orderId });

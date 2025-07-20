@@ -22,19 +22,21 @@ export const products = pgTable("products", {
 });
 
 export const orders = pgTable("orders", {
-  id: serial("id").primaryKey(),
-  orderId: text("order_id").notNull().unique(), // TXR-20250118-001 format
+  id: text("id").primaryKey(),
+  orderId: text("order_id").notNull().unique(),
   customerName: text("customer_name").notNull(),
   customerPhone: text("customer_phone").notNull(),
   customerAddress: text("customer_address").notNull(),
-  items: jsonb("items").notNull(), // array of cart items
-  subtotal: integer("subtotal").notNull(),
-  deliveryFee: integer("delivery_fee").notNull(),
-  total: integer("total").notNull(),
-  paymentMethod: text("payment_method").notNull(), // bkash, nagad, upay
-  deliveryLocation: text("delivery_location").notNull(), // district, thana info
+  customerEmail: text("customer_email"),
+  deliveryLocation: text("delivery_location"),
+  paymentMethod: text("payment_method"),
   specialInstructions: text("special_instructions"),
-  status: text("status").default("pending"), // pending, processing, shipped, delivered
+  promoCode: text("promo_code"),
+  totalAmount: integer("total_amount").notNull(),
+  discountAmount: integer("discount_amount").default(0),
+  deliveryFee: integer("delivery_fee").default(0),
+  finalAmount: integer("final_amount").notNull(),
+  status: text("status").default("pending"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
