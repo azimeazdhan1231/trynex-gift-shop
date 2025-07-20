@@ -1,4 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
+import { getApiUrl } from "./config";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,7 +24,7 @@ export async function apiRequest(method: string, url: string, data?: any) {
     options.body = JSON.stringify(data);
   }
 
-  const response = await fetch(url, options);
+  const response = await fetch(getApiUrl(url), options);
 
   if (!response.ok) {
     throw new Error(`API request failed: ${response.status} ${response.statusText}`);

@@ -1,3 +1,4 @@
+import { getApiUrl } from "@/lib/config";
 import { useState } from "react";
 import { useCartStore } from "@/lib/cart-store";
 import { Button } from "@/components/ui/button";

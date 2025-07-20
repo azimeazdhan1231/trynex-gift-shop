@@ -4,13 +4,14 @@ import ProductCard from "@/components/product-card";
 import CategoryGrid from "@/components/category-grid";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getApiUrl } from "@/lib/config";
 import type { Product } from "@shared/schema";
 
 export default function Home() {
   const { data: featuredProducts } = useQuery<Product[]>({
     queryKey: ["products", "featured"],
     queryFn: async () => {
-      const response = await fetch('/api/products?featured=true');
+      const response = await fetch(getApiUrl('/api/products?featured=true'));
       if (!response.ok) throw new Error('Failed to fetch featured products');
       return response.json();
     }
@@ -19,7 +20,7 @@ export default function Home() {
   const { data: latestProducts } = useQuery<Product[]>({
     queryKey: ["products", "latest"],
     queryFn: async () => {
-      const response = await fetch('/api/products?limit=8');
+      const response = await fetch(getApiUrl('/api/products?limit=8'));
       if (!response.ok) throw new Error('Failed to fetch latest products');
       return response.json();
     }

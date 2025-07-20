@@ -39,7 +39,7 @@
    PORT=10000
    ```
 7. Deploy (takes 5-10 minutes)
-8. Copy your backend URL: `https://trynex-gift-shop-1.onrender.com`
+8. Copy your backend URL: `https://trynex-backend-32fp.onrender.com`
 
 ### 3. Frontend Deployment (Netlify) - FREE
 1. Go to [netlify.com](https://netlify.com) → Login
@@ -47,10 +47,10 @@
 3. Select your repository
 4. Build settings:
    - **Build command**: `npm run build:frontend`
-   - **Publish directory**: `dist`
+   - **Publish directory**: `dist/public`
 5. Environment variables:
    ```
-   VITE_API_URL=https://trynex-gift-shop-1.onrender.com
+   VITE_API_URL=https://trynex-backend-32fp.onrender.com
    ```
 6. Deploy!
 
@@ -72,7 +72,7 @@ npm run seed
 
 ### Frontend Not Loading Data?
 - Check if `VITE_API_URL` points to your Render backend
-- Verify backend is running: visit `https://trynex-gift-shop-1.onrender.com/api/products`
+- Verify backend is running: visit `https://trynex-backend-32fp.onrender.com/api/products`
 - Check browser console for CORS errors
 
 ### Database Connection Issues?

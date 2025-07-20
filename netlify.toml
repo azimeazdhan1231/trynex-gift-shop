@@ -1,6 +1,6 @@
 [build]
   command = "npm run build:frontend"
-  publish = "dist"
+  publish = "dist/public"
   
 [build.environment]
   NODE_VERSION = "18"
@@ -11,7 +11,7 @@
   status = 200
 
 [context.production.environment]
-  VITE_API_URL = "https://trynex-gift-shop-1.onrender.com"
+  VITE_API_URL = "https://trynex-backend-32fp.onrender.com"
 
 [context.deploy-preview.environment]
-  VITE_API_URL = "https://trynex-gift-shop-1.onrender.com"
+  VITE_API_URL = "https://trynex-backend-32fp.onrender.com"

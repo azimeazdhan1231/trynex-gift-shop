@@ -1,3 +1,4 @@
+import { getApiUrl } from "@/lib/config";
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -43,7 +44,7 @@ export default function Products() {
       if (selectedCategory) params.set('category', selectedCategory);
       if (sortBy) params.set('sortBy', sortBy);
       
-      const response = await fetch(`/api/products?${params.toString()}`);
+      const response = await fetch(getApiUrl(`/api/products?${params.toString()}`));
       if (!response.ok) throw new Error('Failed to fetch products');
       return response.json();
     }
@@ -53,7 +54,7 @@ export default function Products() {
   const { data: categories } = useQuery<Category[]>({
     queryKey: ["categories"],
     queryFn: async () => {
-      const response = await fetch('/api/categories');
+      const response = await fetch(getApiUrl('/api/categories'));
       if (!response.ok) throw new Error('Failed to fetch categories');
       return response.json();
     }

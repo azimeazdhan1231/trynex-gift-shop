@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { apiRequest } from "@/lib/queryClient";
+import { getApiUrl } from "@/lib/config";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, Order, PromoCode, InsertProduct, InsertPromoCode } from "@shared/schema";
 
@@ -55,7 +56,7 @@ export default function Admin() {
   const { data: products, isLoading: productsLoading, refetch: refetchProducts } = useQuery<Product[]>({
     queryKey: ["products"],
     queryFn: async () => {
-      const response = await fetch('/api/products');
+      const response = await fetch(getApiUrl('/api/products'));
       if (!response.ok) throw new Error('Failed to fetch products');
       return response.json();
     }
@@ -64,7 +65,7 @@ export default function Admin() {
   const { data: orders, isLoading: ordersLoading, refetch: refetchOrders } = useQuery<Order[]>({
     queryKey: ["orders"],
     queryFn: async () => {
-      const response = await fetch('/api/orders');
+      const response = await fetch(getApiUrl('/api/orders'));
       if (!response.ok) throw new Error('Failed to fetch orders');
       return response.json();
     }
@@ -73,7 +74,7 @@ export default function Admin() {
   const { data: promoCodes, isLoading: promoCodesLoading, refetch: refetchPromoCodes } = useQuery<PromoCode[]>({
     queryKey: ["promo-codes"],
     queryFn: async () => {
-      const response = await fetch('/api/promo-codes');
+      const response = await fetch(getApiUrl('/api/promo-codes'));
       if (!response.ok) throw new Error('Failed to fetch promo codes');
       return response.json();
     }
