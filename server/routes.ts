@@ -28,6 +28,18 @@ const db = drizzle(client);
 export async function registerRoutes(app: Express): Promise<Server> {
   console.log('📋 Setting up API routes...');
 
+  // Add CORS headers for all routes
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(200);
+    } else {
+      next();
+    }
+  });
+
   // Health check endpoint
   app.get('/api/health', (req, res) => {
     console.log('✅ Health check accessed');
@@ -146,11 +158,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/products/:id", async (req, res) => {
     try {
+      console.log('🔄 Updating product:', req.params.id, req.body);
       const id = parseInt(req.params.id);
-      const productData = insertProductSchema.partial().parse(req.body);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid product ID" });
+      }
+
+      // Transform the data to match database schema
+      const productData = {
+        name: req.body.name,
+        namebn: req.body.namebn,
+        description: req.body.description,
+        descriptionbn: req.body.descriptionbn,
+        price: parseInt(req.body.price) * 100, // Convert BDT to paisa
+        category: req.body.category,
+        categorybn: req.body.categorybn,
+        imageUrl: req.body.imageUrl,
+        stock: parseInt(req.body.stock),
+        isActive: req.body.isActive,
+        isFeatured: req.body.isFeatured,
+        tags: req.body.tags || [],
+        variants: req.body.variants || {},
+        updatedAt: new Date()
+      };
       
       const updatedProduct = await db.update(products)
-        .set({ ...productData, updatedAt: new Date() })
+        .set(productData)
         .where(eq(products.id, id))
         .returning();
       
@@ -161,11 +195,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('✅ Product updated:', updatedProduct[0].name);
       res.json(updatedProduct[0]);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid product data", details: error.errors });
-      }
       console.error('❌ Error updating product:', error);
-      res.status(500).json({ error: "Failed to update product" });
+      res.status(500).json({ 
+        error: "Failed to update product",
+        details: error.message 
+      });
     }
   });
 
@@ -226,7 +260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/orders", async (req, res) => {
     try {
-      console.log('🛒 Creating new order...');
+      console.log('🛒 Creating new order...', req.body);
       const {
         customerName,
         customerPhone,
@@ -242,6 +276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validation
       if (!customerName || !customerPhone || !customerAddress || !items || !Array.isArray(items) || items.length === 0) {
+        console.log('❌ Missing required fields:', { customerName, customerPhone, customerAddress, items });
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
@@ -250,28 +285,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('📝 Creating order:', orderId);
 
-      const newOrder = await db.insert(orders).values({
+      const orderData = {
         orderId,
         customerName,
         customerPhone,
         customerAddress,
         items: JSON.stringify(items),
-        subtotal: subtotal || 0,
-        deliveryFee: deliveryFee || 0,
-        total: total || 0,
+        subtotal: parseInt(subtotal) || 0,
+        deliveryFee: parseInt(deliveryFee) || 0,
+        total: parseInt(total) || 0,
         paymentMethod: paymentMethod || 'cash_on_delivery',
         deliveryLocation: deliveryLocation || 'dhaka',
-        specialInstructions,
+        specialInstructions: specialInstructions || '',
         status: 'pending'
-      }).returning();
+      };
+
+      const newOrder = await db.insert(orders).values(orderData).returning();
 
       console.log('✅ Order created successfully:', newOrder[0].orderId);
       res.status(201).json(newOrder[0]);
     } catch (error) {
       console.error('❌ Order creation error:', error);
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid order data", details: error.errors });
-      }
       res.status(500).json({ 
         error: "Failed to create order",
         details: error.message 

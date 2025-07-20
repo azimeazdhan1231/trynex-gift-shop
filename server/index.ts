@@ -1,36 +1,19 @@
-
 import express from 'express';
-import cors from 'cors';
-import { registerRoutes } from './routes.js';
+import cors from "cors";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Enhanced CORS configuration
+console.log('🚀 Starting TryneX Backend Server...');
+console.log('🔗 Database: Supabase PostgreSQL');
+console.log('🌐 CORS: Configured for all origins');
+
+// CORS configuration - Allow all origins for now
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'https://trynex-gift-shop.netlify.app',
-    'https://main--trynex-gift-shop.netlify.app',
-    /^https:\/\/deploy-preview-\d+--trynex-gift-shop\.netlify\.app$/,
-    /^https:\/\/.*--trynex-gift-shop\.netlify\.app$/,
-    /^https:\/\/.*\.netlify\.app$/,
-    /^https:\/\/.*\.repl\.co$/,
-    /^https:\/\/.*\.replit\.dev$/
-  ],
+  origin: true,
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'Accept', 
-    'Origin', 
-    'X-Requested-With',
-    'Access-Control-Allow-Origin',
-    'Access-Control-Allow-Headers',
-    'Access-Control-Allow-Methods'
-  ]
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 
 // Middleware
@@ -46,12 +29,8 @@ app.use((req, res, next) => {
 // Register routes and start server
 async function startServer() {
   try {
-    console.log('🚀 Starting TryneX Backend Server...');
-    console.log('🔗 Database: Supabase PostgreSQL');
-    console.log('🌐 CORS: Configured for Netlify and Replit');
-    
     const server = await registerRoutes(app);
-    
+
     // Error handling middleware
     app.use((err, req, res, next) => {
       console.error('❌ Unhandled error:', err);
