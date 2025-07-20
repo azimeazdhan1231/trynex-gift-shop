@@ -133,45 +133,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create order endpoint
-  app.post("/api/orders", async (req, res) => {
+  // Create order
+  app.post('/api/orders', async (req, res) => {
     try {
-      console.log("📝 Creating order with data:", req.body);
-
-      // Validate required fields
-      if (!req.body.customerName || !req.body.customerPhone || !req.body.customerAddress) {
-        return res.status(400).json({ error: "Missing required fields: customerName, customerPhone, customerAddress" });
-      }
+      const orderData = req.body;
+      console.log('Creating order with data:', orderData);
 
       // Generate order ID
-      const orderId = `TXR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+      const orderId = `TG${Date.now()}`;
 
-      const orderData = {
-        id: crypto.randomUUID(),
-        orderId: orderId,
-        customerName: req.body.customerName,
-        customerPhone: req.body.customerPhone,
-        customerAddress: req.body.customerAddress,
-        customerEmail: req.body.customerEmail || null,
-        deliveryLocation: req.body.deliveryLocation || null,
-        paymentMethod: req.body.paymentMethod || 'cash_on_delivery',
-        specialInstructions: req.body.specialInstructions || null,
-        promoCode: req.body.promoCode || null,
-        items: req.body.items || [],
-        subtotal: req.body.subtotal || req.body.totalAmount || 0,
-        totalAmount: req.body.totalAmount || 0,
-        discountAmount: req.body.discountAmount || 0,
-        deliveryFee: req.body.deliveryFee || 0,
-        finalAmount: req.body.finalAmount || req.body.totalAmount || 0,
-        status: 'pending'
-      };
+      // Validate required fields
+      if (!orderData.customerName || !orderData.customerPhone || !orderData.customerAddress) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Missing required customer information' 
+        });
+      }
 
-      const order = await storage.createOrder(orderData);
-      console.log("✅ Order created successfully:", order);
-      res.json({ success: true, order, orderId: order.orderId });
+      if (!orderData.items || orderData.items.length === 0) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Order must contain at least one item' 
+        });
+      }
+
+      // Store order in database
+      const result = await sql`
+        INSERT INTO orders (
+          id, customer_name, customer_phone, customer_address, 
+          customer_email, delivery_location, payment_method, 
+          special_instructions, promo_code, items, subtotal, 
+          total_amount, discount_amount, delivery_fee, final_amount, 
+          status, created_at
+        ) VALUES (
+          ${orderId}, ${orderData.customerName}, ${orderData.customerPhone}, 
+          ${orderData.customerAddress}, ${orderData.customerEmail || null}, 
+          ${orderData.deliveryLocation || null}, ${orderData.paymentMethod || 'cash_on_delivery'}, 
+          ${orderData.specialInstructions || null}, ${orderData.promoCode || null}, 
+          ${JSON.stringify(orderData.items)}, ${orderData.subtotal || 0}, 
+          ${orderData.totalAmount || 0}, ${orderData.discountAmount || 0}, 
+          ${orderData.deliveryFee || 6000}, ${orderData.finalAmount || 0}, 
+          'pending', NOW()
+        )
+        RETURNING *
+      `;
+
+      console.log('Order created successfully:', result[0]);
+      res.json({ success: true, orderId, order: result[0] });
     } catch (error) {
-      console.error("❌ Error creating order:", error);
-      res.status(500).json({ error: "Failed to create order", details: error.message });
+      console.error('Error creating order:', error);
+      res.status(500).json({ success: false, error: error.message });
     }
   });
 

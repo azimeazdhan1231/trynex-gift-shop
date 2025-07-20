@@ -1,117 +1,80 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb, varchar } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
+import { pgTable, text, integer, boolean, timestamp, json, uuid } from "drizzle-orm/pg-core";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Products table
 export const products = pgTable("products", {
-  id: serial("id").primaryKey(),
+  id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
   name: text("name").notNull(),
   namebn: text("name_bn").notNull(),
-  description: text("description").notNull(),
-  descriptionbn: text("description_bn").notNull(),
-  price: integer("price").notNull(), // in paisa/cents
+  description: text("description"),
+  descriptionbn: text("description_bn"),
+  price: integer("price").notNull(), // Price in paisa
   category: text("category").notNull(),
-  categorybn: text("category_bn").notNull(),
-  imageUrl: text("image_url").notNull(),
-  stock: integer("stock").default(100),
+  categorybn: text("category_bn"),
+  imageUrl: text("image_url"),
+  stock: integer("stock").default(0),
   isActive: boolean("is_active").default(true),
   isFeatured: boolean("is_featured").default(false),
-  tags: text("tags").array(),
-  variants: jsonb("variants"), // for size, color options
+  tags: json("tags").$type<string[]>(),
+  variants: text("variants"), // JSON string
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
 
+// Orders table
 export const orders = pgTable("orders", {
   id: text("id").primaryKey(),
-  orderId: text("orderId").notNull().unique(), // TXR-20250118-001 format
-  customerName: text("customerName").notNull(),
-  customerPhone: text("customerPhone").notNull(),
-  customerAddress: text("customerAddress").notNull(),
-  customerEmail: text("customerEmail"),
-  deliveryLocation: text("deliveryLocation"),
-  paymentMethod: text("paymentMethod").default("cash_on_delivery"),
-  specialInstructions: text("specialInstructions"),
-  promoCode: text("promoCode"),
-  items: jsonb("items").notNull(), // array of cart items
+  orderId: text("order_id").notNull().unique(),
+  customerName: text("customer_name").notNull(),
+  customerPhone: text("customer_phone").notNull(),
+  customerEmail: text("customer_email"),
+  customerAddress: text("customer_address").notNull(),
+  deliveryLocation: text("delivery_location"),
+  paymentMethod: text("payment_method").default("cash_on_delivery"),
+  specialInstructions: text("special_instructions"),
+  promoCode: text("promo_code"),
+  items: json("items").notNull().$type<Array<{
+    id: number;
+    name: string;
+    namebn: string;
+    price: number;
+    quantity: number;
+    variant?: any;
+  }>>(),
   subtotal: integer("subtotal").notNull(),
-  totalAmount: integer("totalAmount").notNull(),
-  discountAmount: integer("discountAmount").default(0),
-  deliveryFee: integer("deliveryFee").default(0),
-  finalAmount: integer("finalAmount").notNull(),
-  status: text("status").default("pending"), // pending, processing, shipped, delivered
-  createdAt: timestamp("createdAt").defaultNow(),
-  updatedAt: timestamp("updatedAt").defaultNow()
+  deliveryFee: integer("delivery_fee").default(0),
+  discountAmount: integer("discount_amount").default(0),
+  totalAmount: integer("total_amount").notNull(),
+  finalAmount: integer("final_amount").notNull(),
+  status: text("status").default("pending"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
 });
 
+// Promo codes table
 export const promoCodes = pgTable("promo_codes", {
-  id: serial("id").primaryKey(),
+  id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
   code: text("code").notNull().unique(),
-  discount: integer("discount").notNull(), // percentage
-  minOrder: integer("min_order").notNull(),
+  discountPercentage: integer("discount_percentage").notNull(),
   isActive: boolean("is_active").default(true),
   expiresAt: timestamp("expires_at"),
-  createdAt: timestamp("created_at").defaultNow()
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
 });
 
-export const adminUsers = pgTable("admin_users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  createdAt: timestamp("created_at").defaultNow()
-});
+// Schemas
+export const insertProductSchema = createInsertSchema(products);
+export const selectProductSchema = createSelectSchema(products);
+export const insertOrderSchema = createInsertSchema(orders);
+export const selectOrderSchema = createSelectSchema(orders);
+export const insertPromoCodeSchema = createInsertSchema(promoCodes);
+export const selectPromoCodeSchema = createSelectSchema(promoCodes);
 
-export const insertProductSchema = createInsertSchema(products).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true
-});
-
-export const insertOrderSchema = createInsertSchema(orders).omit({
-  createdAt: true,
-  updatedAt: true
-}).extend({
-  id: z.string().optional(),
-  orderId: z.string(),
-  customerName: z.string().min(1),
-  customerPhone: z.string().min(1),
-  customerAddress: z.string().min(1),
-  customerEmail: z.string().nullable().optional(),
-  deliveryLocation: z.string().optional(),
-  paymentMethod: z.string().default("cash_on_delivery"),
-  specialInstructions: z.string().nullable().optional(),
-  promoCode: z.string().nullable().optional(),
-  items: z.array(z.object({
-    id: z.number().optional(),
-    name: z.string(),
-    namebn: z.string().optional(),
-    price: z.number(),
-    quantity: z.number(),
-    category: z.string().optional(),
-    image: z.string().optional()
-  })).default([]),
-  subtotal: z.number().int().min(0).default(0),
-  totalAmount: z.number().int().min(0),
-  discountAmount: z.number().int().min(0).default(0),
-  deliveryFee: z.number().int().min(0).default(0),
-  finalAmount: z.number().int().min(0),
-  status: z.string().default("pending")
-});
-
-export const insertPromoCodeSchema = createInsertSchema(promoCodes).omit({
-  id: true,
-  createdAt: true
-});
-
-export const insertAdminUserSchema = createInsertSchema(adminUsers).omit({
-  id: true,
-  createdAt: true
-});
-
+// Types
+export type Product = z.infer<typeof selectProductSchema>;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
-export type Product = typeof products.$inferSelect;
+export type Order = z.infer<typeof selectOrderSchema> & { total: number };
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
-export type Order = typeof orders.$inferSelect;
+export type PromoCode = z.infer<typeof selectPromoCodeSchema>;
 export type InsertPromoCode = z.infer<typeof insertPromoCodeSchema>;
-export type PromoCode = typeof promoCodes.$inferSelect;
-export type InsertAdminUser = z.infer<typeof insertAdminUserSchema>;
-export type AdminUser = typeof adminUsers.$inferSelect;
