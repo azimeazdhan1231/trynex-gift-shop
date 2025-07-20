@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -24,22 +24,23 @@ export const products = pgTable("products", {
 export const orders = pgTable("orders", {
   id: text("id").primaryKey(),
   orderId: text("order_id").notNull().unique(),
-  customerName: text("customer_name").notNull(),
-  customerPhone: text("customer_phone").notNull(),
+  customerName: varchar("customer_name", { length: 255 }).notNull(),
+  customerPhone: varchar("customer_phone", { length: 20 }).notNull(),
   customerAddress: text("customer_address").notNull(),
-  customerEmail: text("customer_email"),
+  customerEmail: varchar("customer_email", { length: 255 }),
   deliveryLocation: text("delivery_location"),
-  paymentMethod: text("payment_method").default("cash_on_delivery"),
+  paymentMethod: varchar("payment_method", { length: 100 }).default("cash_on_delivery"),
   specialInstructions: text("special_instructions"),
-  promoCode: text("promo_code"),
-  items: jsonb("items").notNull(), // Make items required
-  totalAmount: integer("total_amount").notNull(),
+  promoCode: varchar("promo_code", { length: 50 }),
+  items: jsonb("items").notNull().default("[]"),
+  subtotal: integer("subtotal").notNull().default(0),
+  totalAmount: integer("total_amount").notNull().default(0),
   discountAmount: integer("discount_amount").default(0),
   deliveryFee: integer("delivery_fee").default(0),
-  finalAmount: integer("final_amount").notNull(),
-  status: text("status").default("pending"),
+  finalAmount: integer("final_amount").notNull().default(0),
+  status: varchar("status", { length: 50 }).default("pending"),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow()
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const promoCodes = pgTable("promo_codes", {
@@ -88,6 +89,7 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
     category: z.string().optional(),
     image: z.string().optional()
   })).default([]),
+  subtotal: z.number().int().min(0).default(0),
   totalAmount: z.number().int().min(0),
   discountAmount: z.number().int().min(0).default(0),
   deliveryFee: z.number().int().min(0).default(0),

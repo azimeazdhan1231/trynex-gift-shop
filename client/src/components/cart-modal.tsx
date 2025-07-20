@@ -208,6 +208,7 @@ export default function CartModal() {
           category: item.category,
           image: item.image
         })),
+        subtotal: subtotal,
         totalAmount: Math.round(total * 100), // Convert to paisa
         discountAmount: 0,
         deliveryFee: Math.round(deliveryFee * 100), // Convert to paisa

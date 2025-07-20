@@ -128,12 +128,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customer_name: req.body.customerName,
         customer_phone: req.body.customerPhone,
         customer_address: req.body.customerAddress,
-        customer_email: req.body.customerEmail,
-        delivery_location: req.body.deliveryLocation,
+        customer_email: req.body.customerEmail || null,
+        delivery_location: req.body.deliveryLocation || null,
         payment_method: req.body.paymentMethod || 'cash_on_delivery',
-        special_instructions: req.body.specialInstructions,
-        promo_code: req.body.promoCode,
+        special_instructions: req.body.specialInstructions || null,
+        promo_code: req.body.promoCode || null,
         items: JSON.stringify(req.body.items || []),
+        subtotal: req.body.subtotal || req.body.totalAmount || 0,
         total_amount: req.body.totalAmount || 0,
         discount_amount: req.body.discountAmount || 0,
         delivery_fee: req.body.deliveryFee || 0,
@@ -141,26 +142,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'pending'
       };
 
-      // Use raw SQL query since the schema names don't match Drizzle exactly
-      const result = await db.execute(sql`
-        INSERT INTO orders (
-          id, order_id, customer_name, customer_phone, customer_address, 
-          customer_email, delivery_location, payment_method, special_instructions, 
-          promo_code, items, total_amount, discount_amount, delivery_fee, 
-          final_amount, status, created_at, updated_at
-        ) VALUES (
-          ${orderData.id}, ${orderData.order_id}, ${orderData.customer_name}, 
-          ${orderData.customer_phone}, ${orderData.customer_address}, 
-          ${orderData.customer_email}, ${orderData.delivery_location}, 
-          ${orderData.payment_method}, ${orderData.special_instructions}, 
-          ${orderData.promo_code}, ${orderData.items}, ${orderData.total_amount}, 
-          ${orderData.discount_amount}, ${orderData.delivery_fee}, 
-          ${orderData.final_amount}, ${orderData.status}, NOW(), NOW()
-        ) RETURNING *
-      `);
-
-      console.log("✅ Order created successfully:", result.rows[0]);
-      res.json({ success: true, order: result.rows[0] });
+      const order = await storage.createOrder(orderData);
+      console.log("✅ Order created successfully:", order);
+      res.json({ success: true, order, orderId: order.orderId });
     } catch (error) {
       console.error("❌ Error creating order:", error);
       res.status(500).json({ error: "Failed to create order", details: error.message });
