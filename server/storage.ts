@@ -1,17 +1,19 @@
+
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-// Supabase connection string from environment
+// Use the provided Supabase connection string
 const connectionString = process.env.DATABASE_URL || "postgresql://postgres.wifsqonbnfmwtqvupqbk:Amits@12345@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres";
 import { products, orders, promoCodes, adminUsers, type Product, type InsertProduct, type Order, type InsertOrder, type PromoCode, type InsertPromoCode, type AdminUser, type InsertAdminUser } from "@shared/schema";
 import { eq, desc, like, and, or } from "drizzle-orm";
 
 if (!connectionString) {
-  throw new Error("DATABASE_URL (Supabase connection string) is required");
+  throw new Error("DATABASE_URL is required");
 }
 
 const client = postgres(connectionString, {
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  max: 1
 });
 const db = drizzle(client);
 
@@ -26,6 +28,7 @@ export interface IStorage {
   // Orders
   getOrders(): Promise<Order[]>;
   getOrder(orderId: string): Promise<Order | undefined>;
+  getOrderByOrderId(orderId: string): Promise<Order | undefined>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrderStatus(orderId: string, status: string): Promise<Order | undefined>;
 
@@ -101,6 +104,11 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async getOrderByOrderId(orderId: string): Promise<Order | undefined> {
+    const result = await db.select().from(orders).where(eq(orders.orderId, orderId)).limit(1);
+    return result[0];
+  }
+
   async createOrder(order: InsertOrder): Promise<Order> {
     const result = await db.insert(orders).values(order).returning();
     return result[0];
@@ -159,6 +167,7 @@ export class DatabaseStorage implements IStorage {
 // Initialize sample data
 async function initializeSampleData() {
   try {
+    console.log("🔄 Checking for existing products...");
     const existingProducts = await db.select().from(products).limit(1);
     if (existingProducts.length === 0) {
       console.log("🌱 Initializing sample products...");
@@ -172,11 +181,12 @@ async function initializeSampleData() {
           price: 55000,
           category: "mugs",
           categorybn: "মগ",
-          imageUrl: "https://images.unsplash.com/photo-1514228742587-6b1558fcf93d?w=500",
+          imageUrl: "https://images.unsplash.com/photo-1514228742587-6b1558fcf93a?w=500",
           stock: 100,
           isActive: true,
           isFeatured: true,
-          tags: JSON.stringify(["coffee", "ceramic", "daily-use"])
+          tags: ["coffee", "ceramic", "daily-use"],
+          variants: { colors: ["white", "black", "blue"], sizes: ["small", "medium", "large"] }
         },
         {
           name: "Cotton T-Shirt",
@@ -190,7 +200,8 @@ async function initializeSampleData() {
           stock: 50,
           isActive: true,
           isFeatured: true,
-          tags: JSON.stringify(["cotton", "comfortable", "casual"])
+          tags: ["cotton", "comfortable", "casual"],
+          variants: { sizes: ["S", "M", "L", "XL"], colors: ["white", "black", "navy", "red"] }
         },
         {
           name: "Designer Mug",
@@ -204,7 +215,8 @@ async function initializeSampleData() {
           stock: 75,
           isActive: true,
           isFeatured: false,
-          tags: JSON.stringify(["designer", "ceramic", "gift"])
+          tags: ["designer", "ceramic", "gift"],
+          variants: { colors: ["white", "black", "blue"], sizes: ["small", "medium", "large"] }
         },
         {
           name: "Premium Keychain",
@@ -218,7 +230,8 @@ async function initializeSampleData() {
           stock: 200,
           isActive: true,
           isFeatured: false,
-          tags: JSON.stringify(["metal", "custom", "durable"])
+          tags: ["metal", "custom", "durable"],
+          variants: { colors: ["silver", "gold", "black"] }
         },
         {
           name: "Water Bottle",
@@ -232,7 +245,8 @@ async function initializeSampleData() {
           stock: 60,
           isActive: true,
           isFeatured: true,
-          tags: JSON.stringify(["stainless-steel", "insulated", "eco-friendly"])
+          tags: ["stainless-steel", "insulated", "eco-friendly"],
+          variants: { colors: ["silver", "black", "blue"], sizes: ["500ml", "750ml", "1L"] }
         },
         {
           name: "Gift Hamper for Him",
@@ -246,7 +260,8 @@ async function initializeSampleData() {
           stock: 30,
           isActive: true,
           isFeatured: true,
-          tags: JSON.stringify(["gift", "hamper", "premium"])
+          tags: ["gift", "hamper", "premium"],
+          variants: { themes: ["classic", "modern", "casual"] }
         },
         {
           name: "Gift Hamper for Her",
@@ -260,7 +275,8 @@ async function initializeSampleData() {
           stock: 25,
           isActive: true,
           isFeatured: true,
-          tags: JSON.stringify(["gift", "elegant", "accessories"])
+          tags: ["gift", "elegant", "accessories"],
+          variants: { themes: ["elegant", "romantic", "luxurious"] }
         },
         {
           name: "Baby Gift Set",
@@ -274,7 +290,8 @@ async function initializeSampleData() {
           stock: 40,
           isActive: true,
           isFeatured: false,
-          tags: JSON.stringify(["baby", "soft", "cute"])
+          tags: ["baby", "soft", "cute"],
+          variants: { colors: ["pink", "blue", "yellow"] }
         },
         {
           name: "Couple Set",
@@ -288,7 +305,8 @@ async function initializeSampleData() {
           stock: 35,
           isActive: true,
           isFeatured: true,
-          tags: JSON.stringify(["couple", "matching", "romantic"])
+          tags: ["couple", "matching", "romantic"],
+          variants: { themes: ["romantic", "fun", "classic"] }
         },
         {
           name: "Luxury Gift Hamper",
@@ -302,7 +320,8 @@ async function initializeSampleData() {
           stock: 15,
           isActive: true,
           isFeatured: true,
-          tags: JSON.stringify(["luxury", "premium", "exclusive"])
+          tags: ["luxury", "premium", "exclusive"],
+          variants: { themes: ["luxury", "executive", "premium"] }
         }
       ];
 
@@ -311,6 +330,8 @@ async function initializeSampleData() {
       }
 
       console.log("✅ Sample products initialized successfully!");
+    } else {
+      console.log("✅ Products already exist in database");
     }
   } catch (error) {
     console.error("❌ Error initializing sample data:", error);

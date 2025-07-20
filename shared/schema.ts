@@ -1,63 +1,61 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, boolean, timestamp, jsonb } from 'drizzle-orm/pg-core';
+
+export const products = pgTable('products', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  namebn: text('name_bn'),
+  description: text('description'),
+  descriptionbn: text('description_bn'),
+  price: integer('price').notNull(), // in paisa
+  category: text('category').notNull(),
+  categorybn: text('category_bn'),
+  imageUrl: text('image_url'),
+  stock: integer('stock').default(100),
+  isActive: boolean('is_active').default(true),
+  isFeatured: boolean('is_featured').default(false),
+  tags: text('tags'), // JSON string
+  variants: jsonb('variants'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow()
+});
+
+export const orders = pgTable('orders', {
+  id: serial('id').primaryKey(),
+  orderId: text('order_id').notNull().unique(),
+  customerName: text('customer_name').notNull(),
+  customerPhone: text('customer_phone').notNull(),
+  customerAddress: text('customer_address').notNull(),
+  items: text('items').notNull(), // JSON string
+  subtotal: integer('subtotal').notNull(),
+  deliveryFee: integer('delivery_fee').notNull(),
+  total: integer('total').notNull(),
+  paymentMethod: text('payment_method').notNull(),
+  deliveryLocation: text('delivery_location').notNull(),
+  specialInstructions: text('special_instructions'),
+  status: text('status').default('pending'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow()
+});
+
+export const promoCodes = pgTable('promo_codes', {
+  id: serial('id').primaryKey(),
+  code: text('code').notNull().unique(),
+  discount: integer('discount').notNull(),
+  minOrder: integer('min_order').notNull(),
+  isActive: boolean('is_active').default(true),
+  expiresAt: timestamp('expires_at'),
+  createdAt: timestamp('created_at').defaultNow()
+});
+
+export const adminUsers = pgTable('admin_users', {
+  id: serial('id').primaryKey(),
+  username: text('username').notNull().unique(),
+  password: text('password').notNull(),
+  createdAt: timestamp('created_at').defaultNow()
+});
+
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-
-export const products = pgTable("products", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  namebn: text("name_bn").notNull(),
-  description: text("description").notNull(),
-  descriptionbn: text("description_bn").notNull(),
-  price: integer("price").notNull(), // in paisa/cents
-  category: text("category").notNull(),
-  categorybn: text("category_bn").notNull(),
-  imageUrl: text("image_url").notNull(),
-  stock: integer("stock").default(100),
-  isActive: boolean("is_active").default(true),
-  isFeatured: boolean("is_featured").default(false),
-  tags: text("tags").array(),
-  variants: jsonb("variants"), // for size, color options
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow()
-});
-
-export const orders = pgTable("orders", {
-  id: text("id").primaryKey(),
-  orderId: text("order_id").notNull().unique(),
-  customerName: text("customer_name").notNull(),
-  customerPhone: text("customer_phone").notNull(),
-  customerAddress: text("customer_address").notNull(),
-  customerEmail: text("customer_email"),
-  deliveryLocation: text("delivery_location"),
-  paymentMethod: text("payment_method"),
-  specialInstructions: text("special_instructions"),
-  promoCode: text("promo_code"),
-  items: jsonb("items"), // Add items field
-  totalAmount: integer("total_amount").notNull(),
-  discountAmount: integer("discount_amount").default(0),
-  deliveryFee: integer("delivery_fee").default(0),
-  finalAmount: integer("final_amount").notNull(),
-  status: text("status").default("pending"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow()
-});
-
-export const promoCodes = pgTable("promo_codes", {
-  id: serial("id").primaryKey(),
-  code: text("code").notNull().unique(),
-  discount: integer("discount").notNull(), // percentage
-  minOrder: integer("min_order").notNull(),
-  isActive: boolean("is_active").default(true),
-  expiresAt: timestamp("expires_at"),
-  createdAt: timestamp("created_at").defaultNow()
-});
-
-export const adminUsers = pgTable("admin_users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  createdAt: timestamp("created_at").defaultNow()
-});
 
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
@@ -69,6 +67,14 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,
   updatedAt: true
+}).extend({
+  orderId: z.string().min(1),
+  customerName: z.string().min(1),
+  customerPhone: z.string().min(1),
+  customerAddress: z.string().min(1),
+  totalAmount: z.number().min(0),
+  finalAmount: z.number().min(0),
+  items: z.array(z.any()).optional()
 });
 
 export const insertPromoCodeSchema = createInsertSchema(promoCodes).omit({

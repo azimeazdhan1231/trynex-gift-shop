@@ -1,47 +1,119 @@
+
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import { products, orders, promoCodes } from "../shared/schema.js";
+import { eq, desc, like, ilike } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 import { insertProductSchema, insertOrderSchema, insertPromoCodeSchema } from "@shared/schema";
 import { z } from "zod";
 
+// Supabase connection
+const connectionString = "postgresql://postgres.wifsqonbnfmwtqvupqbk:Amits@12345@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres";
+const client = postgres(connectionString, {
+  ssl: 'prefer',
+  max: 10,
+  connection: {
+    application_name: 'trynex_backend'
+  }
+});
+const db = drizzle(client);
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  console.log('Setting up API routes...');
+
+  // Health check endpoint
+  app.get('/api/health', (req, res) => {
+    console.log('Health check accessed');
+    res.json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      database: 'Connected'
+    });
+  });
+
+  // Test database connection
+  app.get('/api/test-db', async (req, res) => {
+    try {
+      console.log('Testing database connection...');
+      const count = await db.select().from(products).limit(1);
+      console.log('Database test successful');
+      res.json({ 
+        status: 'Database connected', 
+        products_available: count.length > 0 
+      });
+    } catch (error) {
+      console.error('Database test error:', error);
+      res.status(500).json({ error: 'Database connection failed', details: error.message });
+    }
+  });
+
   // Products routes
   app.get("/api/products", async (req, res) => {
     try {
+      console.log('Fetching products...');
       const { category, search, featured } = req.query;
-      const products = await storage.getProducts(
-        category as string,
-        search as string,
-        featured === 'true'
-      );
-      res.json(products);
+      
+      let query = db.select().from(products).where(eq(products.isActive, true));
+      
+      if (category && category !== 'all') {
+        query = query.where(eq(products.category, category as string));
+      }
+      
+      if (search) {
+        query = query.where(ilike(products.name, `%${search as string}%`));
+      }
+      
+      if (featured === 'true') {
+        query = query.where(eq(products.isFeatured, true));
+      }
+      
+      const allProducts = await query;
+      console.log(`Found ${allProducts.length} products`);
+      res.json(allProducts);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch products" });
+      console.error('Error fetching products:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch products',
+        details: error.message 
+      });
     }
   });
 
   app.get("/api/products/:id", async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      const product = await storage.getProduct(id);
-      if (!product) {
-        return res.status(404).json({ error: "Product not found" });
+      const productId = parseInt(req.params.id);
+      if (isNaN(productId)) {
+        return res.status(400).json({ error: 'Invalid product ID' });
       }
-      res.json(product);
+      
+      const product = await db.select()
+        .from(products)
+        .where(eq(products.id, productId))
+        .limit(1);
+      
+      if (product.length === 0) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+      
+      res.json(product[0]);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch product" });
+      console.error('Error fetching product:', error);
+      res.status(500).json({ error: 'Failed to fetch product' });
     }
   });
 
   app.post("/api/products", async (req, res) => {
     try {
       const productData = insertProductSchema.parse(req.body);
-      const product = await storage.createProduct(productData);
-      res.json(product);
+      const newProduct = await db.insert(products).values(productData).returning();
+      res.status(201).json(newProduct[0]);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid product data", details: error.errors });
       }
+      console.error('Error adding product:', error);
       res.status(500).json({ error: "Failed to create product" });
     }
   });
@@ -50,15 +122,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const productData = insertProductSchema.partial().parse(req.body);
-      const product = await storage.updateProduct(id, productData);
-      if (!product) {
+      
+      const updatedProduct = await db.update(products)
+        .set({ ...productData, updatedAt: new Date() })
+        .where(eq(products.id, id))
+        .returning();
+      
+      if (updatedProduct.length === 0) {
         return res.status(404).json({ error: "Product not found" });
       }
-      res.json(product);
+      
+      res.json(updatedProduct[0]);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid product data", details: error.errors });
       }
+      console.error('Error updating product:', error);
       res.status(500).json({ error: "Failed to update product" });
     }
   });
@@ -66,12 +145,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/products/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const success = await storage.deleteProduct(id);
-      if (!success) {
+      
+      const deletedProduct = await db.update(products)
+        .set({ isActive: false })
+        .where(eq(products.id, id))
+        .returning();
+      
+      if (deletedProduct.length === 0) {
         return res.status(404).json({ error: "Product not found" });
       }
+      
       res.json({ success: true });
     } catch (error) {
+      console.error('Error deleting product:', error);
       res.status(500).json({ error: "Failed to delete product" });
     }
   });
@@ -79,9 +165,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Orders routes
   app.get("/api/orders", async (req, res) => {
     try {
-      const orders = await storage.getOrders();
-      res.json(orders);
+      const allOrders = await db.select()
+        .from(orders)
+        .orderBy(desc(orders.createdAt));
+      res.json(allOrders);
     } catch (error) {
+      console.error('Error fetching orders:', error);
       res.status(500).json({ error: "Failed to fetch orders" });
     }
   });
@@ -89,12 +178,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/orders/:orderId", async (req, res) => {
     try {
       const orderId = req.params.orderId;
-      const order = await storage.getOrder(orderId);
-      if (!order) {
+      const order = await db.select()
+        .from(orders)
+        .where(eq(orders.orderId, orderId))
+        .limit(1);
+      
+      if (order.length === 0) {
         return res.status(404).json({ error: "Order not found" });
       }
-      res.json(order);
+      
+      res.json(order[0]);
     } catch (error) {
+      console.error('Error fetching order:', error);
       res.status(500).json({ error: "Failed to fetch order" });
     }
   });
@@ -103,52 +198,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/orders/track/:orderId", async (req, res) => {
     try {
       const orderId = req.params.orderId;
-      const order = await storage.getOrderByOrderId(orderId);
-      if (!order) {
+      const order = await db.select()
+        .from(orders)
+        .where(eq(orders.orderId, orderId))
+        .limit(1);
+      
+      if (order.length === 0) {
         return res.status(404).json({ error: "Order not found" });
       }
-      res.json(order);
+      
+      res.json(order[0]);
     } catch (error) {
+      console.error('Error fetching order:', error);
       res.status(500).json({ error: "Failed to fetch order" });
     }
   });
 
   app.post("/api/orders", async (req, res) => {
     try {
-      // Generate unique order ID with timestamp
-      const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
-      const orderId = `TRY-${today}-${timestamp}`;
+      console.log('Creating new order...');
+      const {
+        customerName,
+        customerPhone,
+        customerAddress,
+        items,
+        subtotal,
+        deliveryFee,
+        total,
+        paymentMethod,
+        deliveryLocation,
+        specialInstructions
+      } = req.body;
 
-      const orderData = {
+      // Validation
+      if (!customerName || !customerPhone || !customerAddress || !items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+
+      // Generate unique order ID
+      const orderId = `TXR-${new Date().getFullYear()}${(new Date().getMonth() + 1).toString().padStart(2, '0')}${new Date().getDate().toString().padStart(2, '0')}-${nanoid(6).toUpperCase()}`;
+
+      console.log('Creating order:', orderId);
+
+      const newOrder = await db.insert(orders).values({
         orderId,
-        customerName: req.body.customerName || "",
-        customerPhone: req.body.customerPhone || "",
-        customerAddress: req.body.customerAddress || "",
-        customerEmail: req.body.customerEmail || "",
-        deliveryLocation: req.body.deliveryLocation || "",
-        paymentMethod: req.body.paymentMethod || "",
-        specialInstructions: req.body.specialInstructions || "",
-        promoCode: req.body.promoCode || "",
-        items: req.body.items || [], // Include cart items
-        totalAmount: req.body.total || req.body.subtotal || 0,
-        discountAmount: req.body.discountAmount || 0,
-        deliveryFee: req.body.deliveryFee || 0,
-        finalAmount: req.body.total || (req.body.subtotal + req.body.deliveryFee) || 0,
-        status: "pending"
-      };
+        customerName,
+        customerPhone,
+        customerAddress,
+        items: JSON.stringify(items),
+        subtotal: subtotal || 0,
+        deliveryFee: deliveryFee || 0,
+        total: total || 0,
+        paymentMethod: paymentMethod || 'cash_on_delivery',
+        deliveryLocation: deliveryLocation || 'dhaka',
+        specialInstructions,
+        status: 'pending'
+      }).returning();
 
-      console.log("Order data being processed:", orderData);
-      
-      const validatedOrder = insertOrderSchema.parse(orderData);
-      const order = await storage.createOrder(validatedOrder);
-      res.json({ ...order, orderId });
+      console.log('Order created successfully:', newOrder[0].orderId);
+      res.status(201).json(newOrder[0]);
     } catch (error) {
-      console.error("Order creation error:", error);
+      console.error('Order creation error:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid order data", details: error.errors });
       }
-      res.status(500).json({ error: "Failed to create order" });
+      res.status(500).json({ 
+        error: "Failed to create order",
+        details: error.message 
+      });
     }
   });
 
@@ -161,126 +278,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid status" });
       }
 
-      const order = await storage.updateOrderStatus(orderId, status);
-      if (!order) {
+      const updatedOrder = await db.update(orders)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(orders.orderId, orderId))
+        .returning();
+      
+      if (updatedOrder.length === 0) {
         return res.status(404).json({ error: "Order not found" });
       }
-      res.json(order);
+      
+      res.json(updatedOrder[0]);
     } catch (error) {
+      console.error('Error updating order:', error);
       res.status(500).json({ error: "Failed to update order status" });
     }
   });
 
-  // Promo codes routes
-  app.get("/api/promo-codes", async (req, res) => {
-    try {
-      const promoCodes = await storage.getPromoCodes();
-      res.json(promoCodes);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch promo codes" });
-    }
-  });
-
-  app.get("/api/promo-codes/:code", async (req, res) => {
-    try {
-      const code = req.params.code;
-      const promoCode = await storage.getPromoCode(code);
-      if (!promoCode) {
-        return res.status(404).json({ error: "Promo code not found" });
-      }
-      res.json(promoCode);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch promo code" });
-    }
-  });
-
-  // Validate promo code
-  app.post("/api/promo-codes/validate", async (req, res) => {
-    try {
-      const { code } = req.body;
-      const promoCode = await storage.getPromoCode(code);
-
-      if (!promoCode) {
-        return res.status(404).json({ error: "Invalid promo code" });
-      }
-
-      // Check if promo code is active and not expired
-      const now = new Date();
-      if (!promoCode.isActive || (promoCode.expiresAt && new Date(promoCode.expiresAt) < now)) {
-        return res.status(400).json({ error: "Promo code has expired" });
-      }
-
-      res.json({ 
-        code: promoCode.code, 
-        discount: promoCode.discountPercentage,
-        message: "Promo code applied successfully" 
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to validate promo code" });
-    }
-  });
-
-  app.post("/api/promo-codes", async (req, res) => {
-    try {
-      const promoCodeData = insertPromoCodeSchema.parse(req.body);
-      const promoCode = await storage.createPromoCode(promoCodeData);
-      res.json(promoCode);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid promo code data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to create promo code" });
-    }
-  });
-
-  app.put("/api/promo-codes/:id", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const promoCodeData = insertPromoCodeSchema.partial().parse(req.body);
-      const promoCode = await storage.updatePromoCode(id, promoCodeData);
-      if (!promoCode) {
-        return res.status(404).json({ error: "Promo code not found" });
-      }
-      res.json(promoCode);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid promo code data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to update promo code" });
-    }
-  });
-
-  app.delete("/api/promo-codes/:id", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const success = await storage.deletePromoCode(id);
-      if (!success) {
-        return res.status(404).json({ error: "Promo code not found" });
-      }
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete promo code" });
-    }
-  });
-
-  // Categories route (static data)
+  // Categories route
   app.get("/api/categories", async (req, res) => {
-    const categories = [
-      { id: "mugs", name: "Mugs", namebn: "মগ", icon: "fa-mug-hot", minPrice: 550 },
-      { id: "tshirts", name: "T-Shirts", namebn: "টি-শার্ট", icon: "fa-tshirt", minPrice: 350 },
-      { id: "keychains", name: "Keychains", namebn: "চাবির চেইন", icon: "fa-key", minPrice: 300 },
-      { id: "bottles", name: "Water Bottles", namebn: "পানির বোতল", icon: "fa-wine-bottle", minPrice: 800 },
-      { id: "gift-him", name: "Gift for Him", namebn: "তার জন্য গিফট", icon: "fa-male", minPrice: 1200 },
-      { id: "gift-her", name: "Gift for Her", namebn: "তার জন্য গিফট", icon: "fa-female", minPrice: 1500 },
-      { id: "gift-parents", name: "Gift for Parents", namebn: "মা-বাবার জন্য", icon: "fa-heart", minPrice: 1000 },
-      { id: "gift-babies", name: "Gifts for Babies", namebn: "শিশুদের জন্য", icon: "fa-baby", minPrice: 700 },
-      { id: "couple", name: "For Couple", namebn: "কাপলের জন্য", icon: "fa-heart", minPrice: 1100 },
-      { id: "hampers", name: "Premium Luxury Gift Hampers", namebn: "প্রিমিয়াম হ্যাম্পার", icon: "fa-gift", minPrice: 2500 },
-      { id: "chocolates-flowers", name: "Chocolates & Flowers", namebn: "চকলেট ও ফুল", icon: "fa-heart", minPrice: 1300 }
-    ];
-    res.json(categories);
+    try {
+      const categories = await db.select({
+        category: products.category,
+        categorybn: products.categorybn
+      }).from(products)
+      .where(eq(products.isActive, true))
+      .groupBy(products.category, products.categorybn);
+      
+      res.json(categories);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      res.status(500).json({ error: 'Failed to fetch categories' });
+    }
   });
 
+  // Featured products - moved to prevent route conflict
+  app.get('/api/products/featured', async (req, res) => {
+    try {
+      const featuredProducts = await db.select()
+        .from(products)
+        .where(eq(products.isFeatured, true))
+        .limit(12);
+      console.log(`Found ${featuredProducts.length} featured products`);
+      res.json(featuredProducts);
+    } catch (error) {
+      console.error('Error fetching featured products:', error);
+      res.status(500).json({ error: 'Failed to fetch featured products' });
+    }
+  });
+
+  console.log('All routes registered successfully');
   const httpServer = createServer(app);
   return httpServer;
 }
