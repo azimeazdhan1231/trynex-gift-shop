@@ -11,7 +11,7 @@ if (!DATABASE_URL) {
 const client = postgres(DATABASE_URL);
 export const db = drizzle(client);
 
-// Supabase configuration
+// Supabase configuration  
 export const supabaseConfig = {
   url: "https://wifsqonbnfmwtqvupqbk.supabase.co",
   anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpZnNxb25ibmZtd3RxdnVwcWJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1ODAyNjMsImV4cCI6MjA2NzE1NjI2M30.A7o3vhEaNZb9lmViHA_KQrwzKJTBWpsD6KbHqkkput0"

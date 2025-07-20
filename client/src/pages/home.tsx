@@ -16,20 +16,16 @@ export default function Home() {
   const { data: featuredProducts, isLoading: featuredLoading, error: featuredError } = useQuery<Product[]>({
     queryKey: ["products", "featured"],
     queryFn: async () => {
-      try {
-        console.log('Fetching featured products from:', getApiUrl('/api/products?featured=true'));
-        const response = await fetch(getApiUrl('/api/products?featured=true'));
-        if (!response.ok) {
-          console.error('Failed to fetch featured products:', response.status, response.statusText);
-          throw new Error('Failed to fetch featured products');
-        }
-        const data = await response.json();
-        console.log('Featured products fetched:', data);
-        return data;
-      } catch (error) {
-        console.error('Error fetching featured products:', error);
-        throw error;
+      const url = getApiUrl('/api/products?featured=true');
+      console.log('🎯 Fetching featured products from:', url);
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.error('❌ Failed to fetch featured products:', response.status, response.statusText);
+        throw new Error('Failed to fetch featured products');
       }
+      const data = await response.json();
+      console.log('✅ Featured products fetched successfully:', data?.length, 'products');
+      return data;
     }
   });
 
@@ -46,20 +42,16 @@ export default function Home() {
   const { data: allProducts, isLoading: allProductsLoading, error: allProductsError } = useQuery<Product[]>({
     queryKey: ["products"],
     queryFn: async () => {
-      try {
-        console.log('Fetching all products from:', getApiUrl('/api/products'));
-        const response = await fetch(getApiUrl('/api/products'));
-        if (!response.ok) {
-          console.error('Failed to fetch all products:', response.status, response.statusText);
-          throw new Error('Failed to fetch products');
-        }
-        const data = await response.json();
-        console.log('All products fetched:', data);
-        return data;
-      } catch (error) {
-        console.error('Error fetching all products:', error);
-        throw error;
+      const url = getApiUrl('/api/products');
+      console.log('🎯 Fetching all products from:', url);
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.error('❌ Failed to fetch all products:', response.status, response.statusText);
+        throw new Error('Failed to fetch products');
       }
+      const data = await response.json();
+      console.log('✅ All products fetched successfully:', data?.length, 'products');
+      return data;
     }
   });
 
