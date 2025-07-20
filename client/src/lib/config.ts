@@ -1,9 +1,5 @@
 
-// API Configuration
-const isDevelopment = import.meta.env.DEV;
-const API_BASE_URL = isDevelopment 
-  ? 'http://localhost:5000' 
-  : 'https://trynex-backend-32fp.onrender.com';
+const API_BASE_URL = "https://trynex-backend-32fp.onrender.com";
 
 export function getApiUrl(path: string): string {
   // Remove leading slash if present to avoid double slashes
@@ -11,10 +7,8 @@ export function getApiUrl(path: string): string {
   return `${API_BASE_URL}/${cleanPath}`;
 }
 
-// Export for debugging
 export const config = {
-  apiUrl: API_BASE_URL,
-  isDevelopment
+  apiBaseUrl: API_BASE_URL,
+  isDevelopment: import.meta.env.DEV,
+  isProduction: import.meta.env.PROD,
 };
-
-console.log('🔧 API Configuration:', config);

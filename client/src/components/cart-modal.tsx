@@ -1,356 +1,387 @@
 
 import { useState } from "react";
-import { X, Plus, Minus, ShoppingBag, Truck, CreditCard } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCartStore } from "@/lib/cart-store";
+import { X, Plus, Minus, ShoppingCart, Truck, Tag } from "lucide-react";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { useCartStore } from "../lib/cart-store";
 import { useMutation } from "@tanstack/react-query";
-import { getApiUrl } from "@/lib/config";
-import { useToast } from "@/hooks/use-toast";
 
 interface CartModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function CartModal({ isOpen, onClose }: CartModalProps) {
-  const { items, updateQuantity, removeItem, clearCart, getTotalPrice, getTotalItems } = useCartStore();
-  const [step, setStep] = useState<"cart" | "checkout" | "success">("cart");
-  const [orderData, setOrderData] = useState({
-    customerName: "",
-    customerPhone: "",
-    customerAddress: "",
-    customerEmail: "",
-    deliveryLocation: "",
-    paymentMethod: "cash_on_delivery",
-    specialInstructions: "",
-    promoCode: ""
-  });
-  const [orderId, setOrderId] = useState("");
-  const { toast } = useToast();
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-  const deliveryFee = 60 * 100; // 60 BDT in paisa
+// Districts and their delivery fees
+const deliveryLocations = [
+  { name: "Dhaka", fee: 60, feeText: "৬০ টাকা" },
+  { name: "Chittagong", fee: 120, feeText: "১২০ টাকা" },
+  { name: "Rajshahi", fee: 100, feeText: "১০০ টাকা" },
+  { name: "Khulna", fee: 100, feeText: "১০০ টাকা" },
+  { name: "Barisal", fee: 120, feeText: "১২০ টাকা" },
+  { name: "Sylhet", fee: 120, feeText: "১২০ টাকা" },
+  { name: "Rangpur", fee: 120, feeText: "১২০ টাকা" },
+  { name: "Mymensingh", fee: 100, feeText: "১০০ টাকা" }
+];
+
+export function CartModal({ isOpen, onClose }: CartModalProps) {
+  const { items, updateQuantity, removeFromCart, clearCart, getTotalPrice, getItemCount } = useCartStore();
+  
+  // Form states
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [deliveryLocation, setDeliveryLocation] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("cash_on_delivery");
+  const [specialInstructions, setSpecialInstructions] = useState("");
+  const [promoCode, setPromoCode] = useState("");
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [isCheckingPromo, setIsCheckingPromo] = useState(false);
+
+  const selectedLocation = deliveryLocations.find(loc => loc.name === deliveryLocation);
+  const deliveryFee = selectedLocation ? selectedLocation.fee * 100 : 6000; // Convert to paisa
   const subtotal = getTotalPrice();
-  const finalTotal = subtotal + deliveryFee;
+  const discountAmount = Math.round((subtotal * promoDiscount) / 100);
+  const totalAmount = subtotal + deliveryFee;
+  const finalAmount = totalAmount - discountAmount;
 
+  // Check promo code
+  const checkPromoCode = async () => {
+    if (!promoCode.trim()) return;
+    
+    setIsCheckingPromo(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/promo-codes/${promoCode}`);
+      if (response.ok) {
+        const promoData = await response.json();
+        setPromoDiscount(promoData.discountPercentage);
+      } else {
+        setPromoDiscount(0);
+        alert("Invalid or expired promo code");
+      }
+    } catch (error) {
+      console.error("Error checking promo code:", error);
+      setPromoDiscount(0);
+      alert("Error checking promo code");
+    } finally {
+      setIsCheckingPromo(false);
+    }
+  };
+
+  // Create order mutation
   const createOrderMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await fetch(getApiUrl('/api/orders'), {
+    mutationFn: async (orderData: any) => {
+      const response = await fetch(`${API_BASE_URL}/api/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(orderData),
       });
-
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create order');
+        throw new Error('Failed to create order');
       }
-
+      
       return response.json();
     },
     onSuccess: (data) => {
-      setOrderId(data.orderId);
-      setStep("success");
+      alert(`অর্ডার সফলভাবে তৈরি হয়েছে! অর্ডার ID: ${data.orderId}`);
       clearCart();
-      toast({
-        title: "Order placed successfully!",
-        description: `Your order ID is ${data.orderId}`,
-      });
+      onClose();
+      // Reset form
+      setCustomerName("");
+      setCustomerPhone("");
+      setCustomerEmail("");
+      setCustomerAddress("");
+      setDeliveryLocation("");
+      setSpecialInstructions("");
+      setPromoCode("");
+      setPromoDiscount(0);
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to place order",
-        description: error.message,
-        variant: "destructive"
-      });
+    onError: (error) => {
+      console.error("Order creation error:", error);
+      alert("অর্ডার তৈরি করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
     }
   });
 
-  const handleCheckout = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!orderData.customerName || !orderData.customerPhone || !orderData.customerAddress) {
-      toast({
-        title: "Missing required fields",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      });
+  const handlePlaceOrder = () => {
+    if (!customerName.trim() || !customerPhone.trim() || !customerAddress.trim() || !deliveryLocation) {
+      alert("সব প্রয়োজনীয় তথ্য পূরণ করুন");
       return;
     }
 
-    const orderItems = items.map(item => ({
-      id: item.id,
-      name: item.name,
-      namebn: item.namebn,
-      price: item.price,
-      quantity: item.quantity,
-      imageUrl: item.imageUrl,
-      variant: item.variant
-    }));
-
-    const orderPayload = {
-      ...orderData,
-      items: orderItems,
-      subtotal: subtotal,
-      totalAmount: subtotal,
-      discountAmount: 0,
-      deliveryFee: deliveryFee,
-      finalAmount: finalTotal
+    const orderData = {
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      customerEmail: customerEmail.trim() || undefined,
+      customerAddress: customerAddress.trim(),
+      deliveryLocation,
+      paymentMethod,
+      specialInstructions: specialInstructions.trim() || undefined,
+      promoCode: promoCode.trim() || undefined,
+      items: items.map(item => ({
+        id: item.id,
+        name: item.name,
+        namebn: item.namebn || item.name,
+        price: item.price,
+        quantity: item.quantity,
+        variant: item.variant
+      })),
+      subtotal,
+      deliveryFee,
+      discountAmount,
+      totalAmount,
+      finalAmount
     };
 
-    createOrderMutation.mutate(orderPayload);
+    createOrderMutation.mutate(orderData);
   };
 
-  const formatPrice = (price: number) => `৳${(price / 100).toFixed(0)}`;
+  const formatPrice = (price: number) => {
+    return `৳${(price / 100).toFixed(0)}`;
+  };
 
-  if (!isOpen) return null;
+  if (items.length === 0) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              শপিং কার্ট
+            </DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-8">
+            <ShoppingCart className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500">আপনার কার্ট খালি</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b p-6 rounded-t-2xl">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-              <ShoppingBag className="h-6 w-6 mr-2 text-red-600" />
-              {step === "cart" ? "Your Cart" : step === "checkout" ? "Checkout" : "Order Confirmed"}
-            </h2>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ShoppingCart className="h-5 w-5" />
+            শপিং কার্ট ({getItemCount()} টি পণ্য)
+          </DialogTitle>
+        </DialogHeader>
 
-        {/* Content */}
-        <div className="p-6">
-          {step === "cart" && (
-            <div>
-              {items.length === 0 ? (
-                <div className="text-center py-12">
-                  <ShoppingBag className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-600 mb-2">Your cart is empty</h3>
-                  <p className="text-gray-500 font-bengali">আপনার কার্ট খালি</p>
+        <div className="space-y-6">
+          {/* Cart Items */}
+          <div className="space-y-4">
+            {items.map((item) => (
+              <div key={`${item.id}-${JSON.stringify(item.variant)}`} className="flex items-center gap-4 p-4 border rounded-lg">
+                <img 
+                  src={item.imageUrl} 
+                  alt={item.name}
+                  className="w-16 h-16 object-cover rounded"
+                />
+                <div className="flex-1">
+                  <h4 className="font-medium">{item.name}</h4>
+                  {item.namebn && <p className="text-sm text-gray-500">{item.namebn}</p>}
+                  <p className="text-sm text-green-600 font-medium">{formatPrice(item.price)}</p>
+                  {item.variant && (
+                    <p className="text-xs text-gray-500">
+                      {Object.entries(item.variant).map(([key, value]) => `${key}: ${value}`).join(', ')}
+                    </p>
+                  )}
                 </div>
-              ) : (
-                <div>
-                  {/* Cart Items */}
-                  <div className="space-y-4 mb-6">
-                    {items.map((item) => (
-                      <div key={`${item.id}-${item.selectedSize || 'default'}-${item.selectedColor || 'default'}`} 
-                           className="flex items-center space-x-4 bg-gray-50 rounded-xl p-4">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="w-16 h-16 object-cover rounded-lg"
-                        />
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-gray-800">{item.name}</h4>
-                          <p className="text-sm text-gray-500 font-bengali">{item.namebn}</p>
-                          {item.selectedSize && (
-                            <p className="text-xs text-gray-400">Size: {item.selectedSize}</p>
-                          )}
-                          {item.selectedColor && (
-                            <p className="text-xs text-gray-400">Color: {item.selectedColor}</p>
-                          )}
-                          <p className="font-bold text-red-600">{formatPrice(item.price)}</p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            disabled={item.quantity <= 1}
-                          >
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="w-12 text-center font-semibold">{item.quantity}</span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => removeItem(item.id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Cart Summary */}
-                  <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-xl p-6">
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-gray-600">
-                        <span>Subtotal:</span>
-                        <span>{formatPrice(subtotal)}</span>
-                      </div>
-                      <div className="flex justify-between text-gray-600">
-                        <span className="flex items-center">
-                          <Truck className="h-4 w-4 mr-1" />
-                          Delivery:
-                        </span>
-                        <span>{formatPrice(deliveryFee)}</span>
-                      </div>
-                      <div className="border-t pt-2">
-                        <div className="flex justify-between text-xl font-bold text-gray-800">
-                          <span>Total:</span>
-                          <span className="text-red-600">{formatPrice(finalTotal)}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() => setStep("checkout")}
-                      className="w-full mt-4 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white font-bold py-3 rounded-full"
-                    >
-                      Proceed to Checkout
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {step === "checkout" && (
-            <form onSubmit={handleCheckout} className="space-y-6">
-              <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-xl p-4">
-                <h3 className="font-semibold text-gray-800 mb-2">Order Summary</h3>
-                <div className="flex justify-between text-sm">
-                  <span>{getTotalItems()} items</span>
-                  <span className="font-bold">{formatPrice(finalTotal)}</span>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="customerName">Full Name *</Label>
-                  <Input
-                    id="customerName"
-                    value={orderData.customerName}
-                    onChange={(e) => setOrderData({...orderData, customerName: e.target.value})}
-                    placeholder="আপনার পূর্ণ নাম"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="customerPhone">Phone Number *</Label>
-                  <Input
-                    id="customerPhone"
-                    value={orderData.customerPhone}
-                    onChange={(e) => setOrderData({...orderData, customerPhone: e.target.value})}
-                    placeholder="01XXXXXXXXX"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="customerAddress">Full Address *</Label>
-                  <Textarea
-                    id="customerAddress"
-                    value={orderData.customerAddress}
-                    onChange={(e) => setOrderData({...orderData, customerAddress: e.target.value})}
-                    placeholder="আপনার সম্পূর্ণ ঠিকানা"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="customerEmail">Email (Optional)</Label>
-                  <Input
-                    id="customerEmail"
-                    type="email"
-                    value={orderData.customerEmail}
-                    onChange={(e) => setOrderData({...orderData, customerEmail: e.target.value})}
-                    placeholder="your@email.com"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="paymentMethod">Payment Method</Label>
-                  <Select
-                    value={orderData.paymentMethod}
-                    onValueChange={(value) => setOrderData({...orderData, paymentMethod: value})}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => updateQuantity(item.id, item.variant, Math.max(0, item.quantity - 1))}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash_on_delivery">
-                        <div className="flex items-center">
-                          <Truck className="h-4 w-4 mr-2" />
-                          Cash on Delivery
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="bkash">
-                        <div className="flex items-center">
-                          <CreditCard className="h-4 w-4 mr-2" />
-                          bKash
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="specialInstructions">Special Instructions (Optional)</Label>
-                  <Textarea
-                    id="specialInstructions"
-                    value={orderData.specialInstructions}
-                    onChange={(e) => setOrderData({...orderData, specialInstructions: e.target.value})}
-                    placeholder="Any special delivery instructions..."
-                  />
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="w-8 text-center">{item.quantity}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => updateQuantity(item.id, item.variant, item.quantity + 1)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeFromCart(item.id, item.variant)}
+                    className="ml-2 text-red-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
+            ))}
+          </div>
 
-              <div className="flex space-x-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setStep("cart")}
-                  className="flex-1"
-                >
-                  Back to Cart
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createOrderMutation.isPending}
-                  className="flex-1 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600"
-                >
-                  {createOrderMutation.isPending ? "Placing Order..." : "Place Order"}
-                </Button>
+          {/* Customer Information Form */}
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="font-semibold">গ্রাহকের তথ্য</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="name">নাম *</Label>
+                <Input 
+                  id="name"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="আপনার নাম লিখুন"
+                  required
+                />
               </div>
-            </form>
-          )}
+              <div>
+                <Label htmlFor="phone">ফোন *</Label>
+                <Input 
+                  id="phone"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="০১৭xxxxxxxx"
+                  required
+                />
+              </div>
+            </div>
 
-          {step === "success" && (
-            <div className="text-center py-8">
-              <div className="text-6xl mb-4">🎉</div>
-              <h3 className="text-2xl font-bold text-green-600 mb-2">Order Placed Successfully!</h3>
-              <p className="text-gray-600 mb-4">
-                Your order ID is: <span className="font-bold text-red-600">{orderId}</span>
-              </p>
-              <p className="text-sm text-gray-500 mb-6 font-bengali">
-                আপনার অর্ডারটি সফলভাবে প্লেস হয়েছে। আমরা শীঘ্রই আপনার সাথে যোগাযোগ করব।
-              </p>
-              <Button onClick={onClose} className="bg-green-600 hover:bg-green-700">
-                Continue Shopping
+            <div>
+              <Label htmlFor="email">ইমেইল (ঐচ্ছিক)</Label>
+              <Input 
+                id="email"
+                type="email"
+                value={customerEmail}
+                onChange={(e) => setCustomerEmail(e.target.value)}
+                placeholder="your@email.com"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="address">সম্পূর্ণ ঠিকানা *</Label>
+              <Textarea 
+                id="address"
+                value={customerAddress}
+                onChange={(e) => setCustomerAddress(e.target.value)}
+                placeholder="বাড়ি/রাস্তা, এলাকা, থানা, জেলা"
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="delivery">ডেলিভারি জেলা *</Label>
+              <Select value={deliveryLocation} onValueChange={setDeliveryLocation}>
+                <SelectTrigger>
+                  <SelectValue placeholder="জেলা নির্বাচন করুন" />
+                </SelectTrigger>
+                <SelectContent>
+                  {deliveryLocations.map((location) => (
+                    <SelectItem key={location.name} value={location.name}>
+                      <div className="flex justify-between items-center w-full">
+                        <span>{location.name}</span>
+                        <span className="text-sm text-gray-500 ml-2">({location.feeText})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="payment">পেমেন্ট পদ্ধতি</Label>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash_on_delivery">ক্যাশ অন ডেলিভারি</SelectItem>
+                  <SelectItem value="bkash">বিকাশ</SelectItem>
+                  <SelectItem value="nagad">নগদ</SelectItem>
+                  <SelectItem value="upay">উপায়</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="instructions">বিশেষ নির্দেশনা (ঐচ্ছিক)</Label>
+              <Textarea 
+                id="instructions"
+                value={specialInstructions}
+                onChange={(e) => setSpecialInstructions(e.target.value)}
+                placeholder="কোন বিশেষ প্রয়োজন থাকলে লিখুন"
+              />
+            </div>
+
+            {/* Promo Code */}
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Label htmlFor="promo">প্রমো কোড (ঐচ্ছিক)</Label>
+                <Input 
+                  id="promo"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value)}
+                  placeholder="প্রমো কোড লিখুন"
+                />
+              </div>
+              <Button 
+                type="button" 
+                variant="outline"
+                onClick={checkPromoCode}
+                disabled={isCheckingPromo || !promoCode.trim()}
+                className="mt-6"
+              >
+                <Tag className="h-4 w-4 mr-2" />
+                {isCheckingPromo ? "চেক করা হচ্ছে..." : "প্রয়োগ করুন"}
               </Button>
             </div>
-          )}
+          </div>
+
+          {/* Order Summary */}
+          <div className="space-y-2 border-t pt-4">
+            <h3 className="font-semibold flex items-center gap-2">
+              <Truck className="h-4 w-4" />
+              অর্ডার সামারি
+            </h3>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span>সাবটোটাল:</span>
+                <span>{formatPrice(subtotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>ডেলিভারি চার্জ:</span>
+                <span>{formatPrice(deliveryFee)}</span>
+              </div>
+              {promoDiscount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>ডিসকাউন্ট ({promoDiscount}%):</span>
+                  <span>-{formatPrice(discountAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-semibold text-lg border-t pt-2">
+                <span>সর্বমোট:</span>
+                <span>{formatPrice(finalAmount)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Place Order Button */}
+          <Button 
+            onClick={handlePlaceOrder}
+            className="w-full bg-green-600 hover:bg-green-700"
+            size="lg"
+            disabled={createOrderMutation.isPending}
+          >
+            {createOrderMutation.isPending ? "অর্ডার করা হচ্ছে..." : `অর্ডার করুন - ${formatPrice(finalAmount)}`}
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
