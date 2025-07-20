@@ -117,34 +117,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Received order request:", req.body);
 
+      // Validate required fields
+      if (!req.body.customerName || !req.body.customerPhone || !req.body.customerAddress) {
+        return res.status(400).json({ 
+          error: "Missing required fields",
+          details: "customerName, customerPhone, and customerAddress are required"
+        });
+      }
+
       // Generate unique order ID with timestamp
       const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+      const timestamp = Date.now().toString().slice(-6);
       const random = Math.random().toString(36).substring(2, 8).toUpperCase();
       const orderId = `TRY-${today}-${timestamp}-${random}`;
 
-      // Ensure items is an array and calculate amounts properly
-      const items = Array.isArray(req.body.items) ? req.body.items : [];
-      const totalAmount = req.body.totalAmount || 0;
-      const deliveryFee = req.body.deliveryFee || 0;
-      const discountAmount = req.body.discountAmount || 0;
-      const finalAmount = req.body.finalAmount || (totalAmount + deliveryFee - discountAmount);
+      // Ensure items is an array and validate structure
+      let items = [];
+      if (Array.isArray(req.body.items)) {
+        items = req.body.items.map(item => ({
+          id: item.id || 0,
+          name: item.name || "",
+          namebn: item.namebn || "",
+          price: Math.round(Number(item.price) || 0),
+          quantity: Math.round(Number(item.quantity) || 1),
+          category: item.category || "",
+          image: item.image || ""
+        }));
+      }
+
+      const totalAmount = Math.round(Number(req.body.totalAmount) || 0);
+      const deliveryFee = Math.round(Number(req.body.deliveryFee) || 0);
+      const discountAmount = Math.round(Number(req.body.discountAmount) || 0);
+      const finalAmount = Math.round(Number(req.body.finalAmount) || (totalAmount + deliveryFee - discountAmount));
 
       const orderData = {
         orderId,
-        customerName: req.body.customerName || "",
-        customerPhone: req.body.customerPhone || "",
-        customerAddress: req.body.customerAddress || "",
-        customerEmail: req.body.customerEmail || null,
-        deliveryLocation: req.body.deliveryLocation || req.body.customerAddress || "",
-        paymentMethod: req.body.paymentMethod || "cash_on_delivery",
-        specialInstructions: req.body.specialInstructions || null,
-        promoCode: req.body.promoCode || null,
+        customerName: String(req.body.customerName).trim(),
+        customerPhone: String(req.body.customerPhone).trim(),
+        customerAddress: String(req.body.customerAddress).trim(),
+        customerEmail: req.body.customerEmail ? String(req.body.customerEmail).trim() : null,
+        deliveryLocation: req.body.deliveryLocation ? String(req.body.deliveryLocation).trim() : req.body.customerAddress,
+        paymentMethod: req.body.paymentMethod || "bkash",
+        specialInstructions: req.body.specialInstructions ? String(req.body.specialInstructions).trim() : null,
+        promoCode: req.body.promoCode ? String(req.body.promoCode).trim() : null,
         items: items,
-        totalAmount: Math.round(totalAmount),
-        discountAmount: Math.round(discountAmount),
-        deliveryFee: Math.round(deliveryFee),
-        finalAmount: Math.round(finalAmount),
+        totalAmount: totalAmount,
+        discountAmount: discountAmount,
+        deliveryFee: deliveryFee,
+        finalAmount: finalAmount,
         status: "pending"
       };
 
@@ -152,11 +172,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate the order data
       const validatedOrder = insertOrderSchema.parse(orderData);
-      console.log("Validated order data:", validatedOrder);
+      console.log("Validated order data passed");
 
-      // Create the order - the database will generate the ID
+      // Create the order
       const order = await storage.createOrder(validatedOrder);
-
       console.log("Order created successfully:", order);
 
       res.json({ 
@@ -167,21 +186,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Order creation error:", error);
-      console.error("Error stack:", error.stack);
 
       if (error instanceof z.ZodError) {
         console.error("Validation errors:", error.errors);
         return res.status(400).json({ 
           error: "Invalid order data", 
-          details: error.errors,
-          received: req.body
+          details: error.errors.map(err => ({
+            field: err.path.join('.'),
+            message: err.message,
+            received: err.input
+          }))
         });
       }
 
       res.status(500).json({ 
         error: "Failed to create order",
-        message: error.message,
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        message: error.message || "Internal server error"
       });
     }
   });
