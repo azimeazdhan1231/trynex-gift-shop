@@ -1,10 +1,10 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-
-// Supabase connection string from environment
-const connectionString = process.env.DATABASE_URL || "postgresql://postgres.wifsqonbnfmwtqvupqbk:Amits@12345@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres";
 import { products, orders, promoCodes, adminUsers, type Product, type InsertProduct, type Order, type InsertOrder, type PromoCode, type InsertPromoCode, type AdminUser, type InsertAdminUser } from "@shared/schema";
 import { eq, desc, like, and, or } from "drizzle-orm";
+
+// Use the provided Supabase connection string
+const connectionString = process.env.DATABASE_URL || "postgresql://postgres.wifsqonbnfmwtqvupqbk:Amits@12345@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres";
 
 if (!connectionString) {
   throw new Error("DATABASE_URL (Supabase connection string) is required");
@@ -13,206 +13,229 @@ if (!connectionString) {
 const client = postgres(connectionString, {
   ssl: { rejectUnauthorized: false }
 });
+
 const db = drizzle(client);
 
-export interface IStorage {
-  // Products
-  getProducts(category?: string, search?: string, featured?: boolean): Promise<Product[]>;
-  getProduct(id: number): Promise<Product | undefined>;
-  createProduct(product: InsertProduct): Promise<Product>;
-  updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined>;
-  deleteProduct(id: number): Promise<boolean>;
-
-  // Orders
-  getOrders(): Promise<Order[]>;
-  getOrder(orderId: string): Promise<Order | undefined>;
-  getOrderByOrderId(orderId: string): Promise<Order | undefined>;
-  createOrder(order: InsertOrder): Promise<Order>;
-  updateOrderStatus(orderId: string, status: string): Promise<Order | undefined>;
-
-  // Promo Codes
-  getPromoCodes(): Promise<PromoCode[]>;
-  getPromoCode(code: string): Promise<PromoCode | undefined>;
-  createPromoCode(promoCode: InsertPromoCode): Promise<PromoCode>;
-  updatePromoCode(id: number, promoCode: Partial<InsertPromoCode>): Promise<PromoCode | undefined>;
-  deletePromoCode(id: number): Promise<boolean>;
-
-  // Admin Users
-  getAdminUser(username: string): Promise<AdminUser | undefined>;
-  createAdminUser(adminUser: InsertAdminUser): Promise<AdminUser>;
-}
-
-export class DatabaseStorage implements IStorage {
-  // Products
+export const storage = {
+  // Product methods
   async getProducts(category?: string, search?: string, featured?: boolean): Promise<Product[]> {
-    const conditions = [eq(products.isActive, true)];
-
-    if (category) {
-      conditions.push(eq(products.category, category));
-    }
-    if (search) {
-      conditions.push(
-        or(
-          like(products.name, `%${search}%`),
-          like(products.namebn, `%${search}%`),
-          like(products.description, `%${search}%`)
-        )!
-      );
-    }
-    if (featured !== undefined) {
-      conditions.push(eq(products.isFeatured, featured));
-    }
-
-    return await db.select().from(products).where(and(...conditions)).orderBy(desc(products.createdAt));
-  }
-
-  async getProduct(id: number): Promise<Product | undefined> {
-    const result = await db.select().from(products).where(eq(products.id, id)).limit(1);
-    return result[0];
-  }
-
-  async createProduct(product: InsertProduct): Promise<Product> {
-    const result = await db.insert(products).values(product).returning();
-    return result[0];
-  }
-
-  async updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined> {
-    const result = await db.update(products).set({
-      ...product,
-      updatedAt: new Date()
-    }).where(eq(products.id, id)).returning();
-    return result[0];
-  }
-
-  async deleteProduct(id: number): Promise<boolean> {
-    const result = await db.update(products).set({
-      isActive: false,
-      updatedAt: new Date()
-    }).where(eq(products.id, id));
-    return result.rowCount > 0;
-  }
-
-  // Orders
-  async getOrders(): Promise<Order[]> {
-    return await db.select().from(orders).orderBy(desc(orders.createdAt));
-  }
-
-  async getOrder(orderId: string): Promise<Order | undefined> {
-    const result = await db.select().from(orders).where(eq(orders.orderId, orderId)).limit(1);
-    return result[0];
-  }
-
-  async getOrderByOrderId(orderId: string): Promise<Order | undefined> {
-    const result = await db.select().from(orders).where(eq(orders.orderId, orderId)).limit(1);
-    return result[0];
-  }
-
-  async createOrder(orderData: InsertOrder): Promise<Order> {
     try {
-      console.log("Storage: Creating order with data:", JSON.stringify(orderData, null, 2));
+      let query = db.select().from(products).where(eq(products.isActive, true));
 
-      // Generate a unique order ID if not provided
-      if (!orderData.orderId) {
-        const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const timestamp = Date.now().toString().slice(-6);
-        const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-        orderData.orderId = `TRY-${today}-${timestamp}-${random}`;
+      if (category) {
+        query = query.where(eq(products.category, category));
       }
 
-      // Generate primary key if not provided
-      if (!orderData.id) {
-        orderData.id = `order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+      if (search) {
+        query = query.where(
+          or(
+            like(products.name, `%${search}%`),
+            like(products.namebn, `%${search}%`)
+          )
+        );
       }
 
-      // Ensure items is properly formatted as JSONB
-      if (orderData.items && Array.isArray(orderData.items)) {
-        orderData.items = orderData.items;
-      } else {
-        orderData.items = [];
+      if (featured) {
+        query = query.where(eq(products.isFeatured, true));
       }
 
-      console.log("Storage: Final order data before insert:", JSON.stringify(orderData, null, 2));
+      const result = await query.orderBy(desc(products.createdAt));
+      return result;
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      return [];
+    }
+  },
 
-      const result = await db.insert(orders).values({
-        id: orderData.id,
-        orderId: orderData.orderId,
-        customerName: orderData.customerName,
-        customerPhone: orderData.customerPhone,
-        customerAddress: orderData.customerAddress,
-        customerEmail: orderData.customerEmail,
-        deliveryLocation: orderData.deliveryLocation,
-        paymentMethod: orderData.paymentMethod,
-        specialInstructions: orderData.specialInstructions,
-        promoCode: orderData.promoCode,
-        items: orderData.items,
-        subtotal: orderData.subtotal,
-        totalAmount: orderData.totalAmount,
-        discountAmount: orderData.discountAmount,
-        deliveryFee: orderData.deliveryFee,
-        finalAmount: orderData.finalAmount,
-        status: orderData.status
-      }).returning();
-      console.log("Storage: Order created successfully:", result[0]);
+  async getProduct(id: number): Promise<Product | null> {
+    try {
+      const result = await db.select().from(products).where(eq(products.id, id)).limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error fetching product:", error);
+      return null;
+    }
+  },
+
+  async createProduct(data: InsertProduct): Promise<Product> {
+    try {
+      const result = await db.insert(products).values(data).returning();
       return result[0];
     } catch (error) {
-      console.error("Storage: Error creating order:", error);
-      console.error("Storage: Error details:", error.message);
-      if (error.code) {
-        console.error("Storage: Database error code:", error.code);
-      }
+      console.error("Error creating product:", error);
+      throw error;
+    }
+  },
+
+  async updateProduct(id: number, data: Partial<InsertProduct>): Promise<Product | null> {
+    try {
+      const result = await db.update(products).set({
+        ...data,
+        updatedAt: new Date()
+      }).where(eq(products.id, id)).returning();
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error updating product:", error);
+      return null;
+    }
+  },
+
+  async deleteProduct(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(products).where(eq(products.id, id));
+      return result.rowCount > 0;
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      return false;
+    }
+  },
+
+  // Order methods
+  async getOrders(): Promise<Order[]> {
+    try {
+      const result = await db.select().from(orders).orderBy(desc(orders.createdAt));
+      return result;
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      return [];
+    }
+  },
+
+  async getOrder(id: string): Promise<Order | null> {
+    try {
+      const result = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error fetching order:", error);
+      return null;
+    }
+  },
+
+  async getOrderByOrderId(orderId: string): Promise<Order | null> {
+    try {
+      const result = await db.select().from(orders).where(eq(orders.orderId, orderId)).limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error fetching order by orderId:", error);
+      return null;
+    }
+  },
+
+  async createOrder(data: any): Promise<Order> {
+    try {
+      const orderData = {
+        id: data.id,
+        orderId: data.order_id,
+        customerName: data.customer_name,
+        customerPhone: data.customer_phone,
+        customerAddress: data.customer_address,
+        customerEmail: data.customer_email,
+        deliveryLocation: data.delivery_location,
+        paymentMethod: data.payment_method,
+        specialInstructions: data.special_instructions,
+        promoCode: data.promo_code,
+        items: data.items,
+        subtotal: data.subtotal,
+        total: data.total_amount,
+        discountAmount: data.discount_amount || 0,
+        deliveryFee: data.delivery_fee || 0,
+        finalAmount: data.final_amount,
+        status: data.status || 'pending'
+      };
+
+      const result = await db.insert(orders).values(orderData).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating order:", error);
+      throw error;
+    }
+  },
+
+  async updateOrderStatus(orderId: string, status: string): Promise<Order | null> {
+    try {
+      const result = await db.update(orders).set({
+        status,
+        updatedAt: new Date()
+      }).where(eq(orders.orderId, orderId)).returning();
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      return null;
+    }
+  },
+
+  // Promo code methods
+  async getPromoCodes(): Promise<PromoCode[]> {
+    try {
+      const result = await db.select().from(promoCodes).orderBy(desc(promoCodes.createdAt));
+      return result;
+    } catch (error) {
+      console.error("Error fetching promo codes:", error);
+      return [];
+    }
+  },
+
+  async getPromoCode(code: string): Promise<PromoCode | null> {
+    try {
+      const result = await db.select().from(promoCodes).where(eq(promoCodes.code, code)).limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error fetching promo code:", error);
+      return null;
+    }
+  },
+
+  async createPromoCode(data: InsertPromoCode): Promise<PromoCode> {
+    try {
+      const result = await db.insert(promoCodes).values(data).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating promo code:", error);
+      throw error;
+    }
+  },
+
+  async updatePromoCode(id: number, data: Partial<InsertPromoCode>): Promise<PromoCode | null> {
+    try {
+      const result = await db.update(promoCodes).set(data).where(eq(promoCodes.id, id)).returning();
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error updating promo code:", error);
+      return null;
+    }
+  },
+
+  async deletePromoCode(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(promoCodes).where(eq(promoCodes.id, id));
+      return result.rowCount > 0;
+    } catch (error) {
+      console.error("Error deleting promo code:", error);
+      return false;
+    }
+  },
+
+  // Admin user methods
+  async getAdminUser(username: string): Promise<AdminUser | null> {
+    try {
+      const result = await db.select().from(adminUsers).where(eq(adminUsers.username, username)).limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error fetching admin user:", error);
+      return null;
+    }
+  },
+
+  async createAdminUser(data: InsertAdminUser): Promise<AdminUser> {
+    try {
+      const result = await db.insert(adminUsers).values(data).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating admin user:", error);
       throw error;
     }
   }
-
-  async updateOrderStatus(orderId: string, status: string): Promise<Order | undefined> {
-    const result = await db.update(orders).set({
-      status,
-      updatedAt: new Date()
-    }).where(eq(orders.orderId, orderId)).returning();
-    return result[0];
-  }
-
-  // Promo Codes
-  async getPromoCodes(): Promise<PromoCode[]> {
-    return await db.select().from(promoCodes).orderBy(desc(promoCodes.createdAt));
-  }
-
-  async getPromoCode(code: string): Promise<PromoCode | undefined> {
-    const result = await db.select().from(promoCodes).where(
-      and(
-        eq(promoCodes.code, code),
-        eq(promoCodes.isActive, true)
-      )
-    ).limit(1);
-    return result[0];
-  }
-
-  async createPromoCode(promoCode: InsertPromoCode): Promise<PromoCode> {
-    const result = await db.insert(promoCodes).values(promoCode).returning();
-    return result[0];
-  }
-
-  async updatePromoCode(id: number, promoCode: Partial<InsertPromoCode>): Promise<PromoCode | undefined> {
-    const result = await db.update(promoCodes).set(promoCode).where(eq(promoCodes.id, id)).returning();
-    return result[0];
-  }
-
-  async deletePromoCode(id: number): Promise<boolean> {
-    const result = await db.delete(promoCodes).where(eq(promoCodes.id, id));
-    return result.rowCount > 0;
-  }
-
-  // Admin Users
-  async getAdminUser(username: string): Promise<AdminUser | undefined> {
-    const result = await db.select().from(adminUsers).where(eq(adminUsers.username, username)).limit(1);
-    return result[0];
-  }
-
-  async createAdminUser(adminUser: InsertAdminUser): Promise<AdminUser> {
-    const result = await db.insert(adminUsers).values(adminUser).returning();
-    return result[0];
-  }
-}
+};
 
 // Initialize sample data
 async function initializeSampleData() {
@@ -377,5 +400,3 @@ async function initializeSampleData() {
 
 // Initialize on startup
 initializeSampleData();
-
-export const storage = new DatabaseStorage();

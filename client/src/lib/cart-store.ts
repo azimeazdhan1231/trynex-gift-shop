@@ -1,78 +1,86 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { CartItem, DeliveryZone, PaymentMethod } from '@/types';
+
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { toast } from "@/hooks/use-toast";
+import { getApiUrl } from "./config";
+
+export interface CartItem {
+  id: number;
+  name: string;
+  namebn: string;
+  price: number;
+  imageUrl: string;
+  quantity: number;
+  variant?: { size?: string; color?: string; [key: string]: any };
+}
 
 interface CartStore {
   items: CartItem[];
   isOpen: boolean;
-  deliveryZone: string;
-  paymentMethod: string;
-  promoCode: string;
-  promoDiscount: number;
+  isLoading: boolean;
   
-  // Actions
-  addItem: (item: Omit<CartItem, 'quantity'>) => void;
+  // Cart actions
+  addItem: (product: any, quantity?: number, variant?: any) => void;
   removeItem: (id: number) => void;
   updateQuantity: (id: number, quantity: number) => void;
   clearCart: () => void;
   toggleCart: () => void;
-  openCart: () => void;
-  closeCart: () => void;
-  setDeliveryZone: (zone: string) => void;
-  setPaymentMethod: (method: string) => void;
-  setPromoCode: (code: string, discount: number) => void;
+  setIsOpen: (isOpen: boolean) => void;
   
-  // Getters
+  // Order actions
+  placeOrder: (orderDetails: any) => Promise<{ success: boolean; orderId?: string; error?: string }>;
+  
+  // Computed values
   getTotalItems: () => number;
-  getSubtotal: () => number;
-  getDeliveryFee: () => number;
-  getTotal: () => number;
+  getTotalPrice: () => number;
 }
-
-export const deliveryZones: DeliveryZone[] = [
-  { id: 'dhaka-inside', name: 'Inside Dhaka', namebn: 'ঢাকার ভিতরে', fee: 70 },
-  { id: 'dhaka-outside', name: 'Outside Dhaka', namebn: 'ঢাকার বাইরে', fee: 120 },
-  { id: 'outside-50km', name: '50km+ Outside', namebn: '50km+ বাইরে', fee: 150 }
-];
-
-export const paymentMethods: PaymentMethod[] = [
-  { id: 'bkash', name: 'bKash', namebn: 'বিকাশ', icon: 'mobile-payment' },
-  { id: 'nagad', name: 'Nagad', namebn: 'নগদ', icon: 'mobile-payment' },
-  { id: 'rocket', name: 'Rocket', namebn: 'রকেট', icon: 'mobile-payment' }
-];
 
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
       isOpen: false,
-      deliveryZone: 'dhaka-inside',
-      paymentMethod: 'bkash',
-      promoCode: '',
-      promoDiscount: 0,
+      isLoading: false,
 
-      addItem: (item) => {
-        const items = get().items;
-        const existingItem = items.find(i => i.id === item.id);
+      addItem: (product, quantity = 1, variant = null) => {
+        set((state) => {
+          const existingItemIndex = state.items.findIndex(
+            (item) => item.id === product.id && 
+            JSON.stringify(item.variant) === JSON.stringify(variant)
+          );
+
+          if (existingItemIndex > -1) {
+            const updatedItems = [...state.items];
+            updatedItems[existingItemIndex].quantity += quantity;
+            return { items: updatedItems };
+          } else {
+            const newItem: CartItem = {
+              id: product.id,
+              name: product.name,
+              namebn: product.namebn,
+              price: product.price,
+              imageUrl: product.imageUrl,
+              quantity,
+              variant
+            };
+            return { items: [...state.items, newItem] };
+          }
+        });
         
-        if (existingItem) {
-          set({
-            items: items.map(i =>
-              i.id === item.id
-                ? { ...i, quantity: i.quantity + 1 }
-                : i
-            )
-          });
-        } else {
-          set({
-            items: [...items, { ...item, quantity: 1 }]
-          });
-        }
+        toast({
+          title: "Added to cart",
+          description: `${product.namebn || product.name} has been added to your cart.`,
+        });
       },
 
       removeItem: (id) => {
-        set({
-          items: get().items.filter(item => item.id !== id)
+        set((state) => ({
+          items: state.items.filter((item) => item.id !== id)
+        }));
+        
+        toast({
+          title: "Removed from cart",
+          description: "Item has been removed from your cart.",
         });
       },
 
@@ -81,77 +89,124 @@ export const useCartStore = create<CartStore>()(
           get().removeItem(id);
           return;
         }
-        
-        set({
-          items: get().items.map(item =>
-            item.id === id
-              ? { ...item, quantity }
-              : item
+
+        set((state) => ({
+          items: state.items.map((item) =>
+            item.id === id ? { ...item, quantity } : item
           )
-        });
+        }));
       },
 
       clearCart: () => {
-        set({
-          items: [],
-          promoCode: '',
-          promoDiscount: 0
-        });
+        set({ items: [] });
       },
 
       toggleCart: () => {
-        set({ isOpen: !get().isOpen });
+        set((state) => ({ isOpen: !state.isOpen }));
       },
 
-      openCart: () => {
-        set({ isOpen: true });
+      setIsOpen: (isOpen) => {
+        set({ isOpen });
       },
 
-      closeCart: () => {
-        set({ isOpen: false });
-      },
+      placeOrder: async (orderDetails) => {
+        set({ isLoading: true });
+        
+        try {
+          const { items } = get();
+          
+          if (items.length === 0) {
+            throw new Error("Cart is empty");
+          }
 
-      setDeliveryZone: (zone) => {
-        set({ deliveryZone: zone });
-      },
+          // Calculate totals
+          const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+          const deliveryFee = orderDetails.deliveryFee || 12000; // 120 BDT in paisa
+          const discountAmount = orderDetails.discountAmount || 0;
+          const totalAmount = subtotal + deliveryFee - discountAmount;
 
-      setPaymentMethod: (method) => {
-        set({ paymentMethod: method });
-      },
+          const orderData = {
+            customerName: orderDetails.customerName,
+            customerPhone: orderDetails.customerPhone,
+            customerAddress: orderDetails.customerAddress,
+            customerEmail: orderDetails.customerEmail || null,
+            deliveryLocation: orderDetails.deliveryLocation || null,
+            paymentMethod: orderDetails.paymentMethod || 'cash_on_delivery',
+            specialInstructions: orderDetails.specialInstructions || null,
+            promoCode: orderDetails.promoCode || null,
+            items: items.map(item => ({
+              id: item.id,
+              name: item.name,
+              namebn: item.namebn,
+              price: item.price,
+              quantity: item.quantity,
+              variant: item.variant
+            })),
+            subtotal,
+            deliveryFee,
+            discountAmount,
+            totalAmount,
+            finalAmount: totalAmount
+          };
 
-      setPromoCode: (code, discount) => {
-        set({ promoCode: code, promoDiscount: discount });
+          console.log("Placing order with data:", orderData);
+
+          const response = await fetch(getApiUrl('/api/orders'), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(orderData)
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
+          }
+
+          const result = await response.json();
+          
+          if (result.success) {
+            // Clear cart on successful order
+            get().clearCart();
+            
+            toast({
+              title: "Order placed successfully!",
+              description: `Your order ${result.orderId} has been placed.`,
+            });
+            
+            return { success: true, orderId: result.orderId };
+          } else {
+            throw new Error(result.error || "Failed to place order");
+          }
+          
+        } catch (error) {
+          console.error("Error placing order:", error);
+          
+          toast({
+            title: "Order failed",
+            description: error.message || "Failed to place order. Please try again.",
+            variant: "destructive",
+          });
+          
+          return { success: false, error: error.message };
+        } finally {
+          set({ isLoading: false });
+        }
       },
 
       getTotalItems: () => {
-        return get().items.reduce((total, item) => total + item.quantity, 0);
+        const { items } = get();
+        return items.reduce((sum, item) => sum + item.quantity, 0);
       },
 
-      getSubtotal: () => {
-        return get().items.reduce((total, item) => total + (item.price * item.quantity), 0);
+      getTotalPrice: () => {
+        const { items } = get();
+        return items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       },
-
-      getDeliveryFee: () => {
-        const zone = deliveryZones.find(z => z.id === get().deliveryZone);
-        return zone ? zone.fee : 80;
-      },
-
-      getTotal: () => {
-        const subtotal = get().getSubtotal();
-        const deliveryFee = get().getDeliveryFee();
-        const discount = (subtotal * get().promoDiscount) / 100;
-        return subtotal + deliveryFee - discount;
-      }
     }),
     {
-      name: 'trynex-cart',
-      partialize: (state) => ({
-        items: state.items,
-        deliveryZone: state.deliveryZone,
-        paymentMethod: state.paymentMethod,
-        promoCode: state.promoCode,
-        promoDiscount: state.promoDiscount
-      })
+      name: "cart-storage",
     }
   )
 );
