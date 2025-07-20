@@ -87,7 +87,8 @@ export default function Admin() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      refetchProducts();
       setIsProductDialogOpen(false);
       resetProductForm();
       toast({ title: "Product created successfully!" });
@@ -103,7 +104,8 @@ export default function Admin() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      refetchProducts();
       setIsProductDialogOpen(false);
       resetProductForm();
       setEditingProduct(null);
@@ -120,7 +122,8 @@ export default function Admin() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      refetchProducts();
       toast({ title: "Product deleted successfully!" });
     },
     onError: () => {
@@ -150,7 +153,8 @@ export default function Admin() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      refetchOrders();
       toast({ title: "Order status updated successfully!" });
     },
     onError: () => {

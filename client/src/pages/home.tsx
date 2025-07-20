@@ -10,7 +10,6 @@ import CategoryGrid from "@/components/category-grid";
 import HeroSlider from "@/components/hero-slider";
 import type { Product } from "@shared/schema";
 import type { Category } from "@/types";
-import { useQuery } from "@tanstack/react-query";
 import HeroSlider from "@/components/hero-slider";
 import ProductCard from "@/components/product-card";
 import CategoryGrid from "@/components/category-grid";

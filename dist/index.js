@@ -195,6 +195,163 @@ var DatabaseStorage = class {
     return result[0];
   }
 };
+async function initializeSampleData() {
+  try {
+    const existingProducts = await db.select().from(products).limit(1);
+    if (existingProducts.length === 0) {
+      console.log("\u{1F331} Initializing sample products...");
+      const sampleProducts = [
+        {
+          name: "Classic Coffee Mug",
+          namebn: "\u0995\u09CD\u09B2\u09BE\u09B8\u09BF\u0995 \u0995\u09AB\u09BF \u09AE\u0997",
+          description: "Premium ceramic coffee mug perfect for your morning coffee",
+          descriptionbn: "\u0986\u09AA\u09A8\u09BE\u09B0 \u09B8\u0995\u09BE\u09B2\u09C7\u09B0 \u0995\u09AB\u09BF\u09B0 \u099C\u09A8\u09CD\u09AF \u09A8\u09BF\u0996\u09C1\u0981\u09A4 \u09AA\u09CD\u09B0\u09BF\u09AE\u09BF\u09AF\u09BC\u09BE\u09AE \u09B8\u09BF\u09B0\u09BE\u09AE\u09BF\u0995 \u0995\u09AB\u09BF \u09AE\u0997",
+          price: 55e3,
+          category: "mugs",
+          categorybn: "\u09AE\u0997",
+          imageUrl: "https://images.unsplash.com/photo-1514228742587-6b1558fcf93d?w=500",
+          stock: 100,
+          isActive: true,
+          isFeatured: true,
+          tags: JSON.stringify(["coffee", "ceramic", "daily-use"])
+        },
+        {
+          name: "Cotton T-Shirt",
+          namebn: "\u0995\u099F\u09A8 \u099F\u09BF-\u09B6\u09BE\u09B0\u09CD\u099F",
+          description: "Comfortable 100% cotton t-shirt for everyday wear",
+          descriptionbn: "\u09A6\u09C8\u09A8\u09A8\u09CD\u09A6\u09BF\u09A8 \u09AA\u09B0\u09BF\u09A7\u09BE\u09A8\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u0986\u09B0\u09BE\u09AE\u09A6\u09BE\u09AF\u09BC\u0995 \u09E7\u09E6\u09E6% \u0995\u099F\u09A8 \u099F\u09BF-\u09B6\u09BE\u09B0\u09CD\u099F",
+          price: 45e3,
+          category: "tshirts",
+          categorybn: "\u099F\u09BF-\u09B6\u09BE\u09B0\u09CD\u099F",
+          imageUrl: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500",
+          stock: 50,
+          isActive: true,
+          isFeatured: true,
+          tags: JSON.stringify(["cotton", "comfortable", "casual"])
+        },
+        {
+          name: "Designer Mug",
+          namebn: "\u09A1\u09BF\u099C\u09BE\u0987\u09A8\u09BE\u09B0 \u09AE\u0997",
+          description: "Beautiful designer mug with unique patterns",
+          descriptionbn: "\u0985\u09A8\u09A8\u09CD\u09AF \u09A8\u0995\u09B6\u09BE \u09B8\u09B9 \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0 \u09A1\u09BF\u099C\u09BE\u0987\u09A8\u09BE\u09B0 \u09AE\u0997",
+          price: 65e3,
+          category: "mugs",
+          categorybn: "\u09AE\u0997",
+          imageUrl: "https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e?w=500",
+          stock: 75,
+          isActive: true,
+          isFeatured: false,
+          tags: JSON.stringify(["designer", "ceramic", "gift"])
+        },
+        {
+          name: "Premium Keychain",
+          namebn: "\u09AA\u09CD\u09B0\u09BF\u09AE\u09BF\u09AF\u09BC\u09BE\u09AE \u099A\u09BE\u09AC\u09BF\u09B0 \u099A\u09C7\u0987\u09A8",
+          description: "High-quality metal keychain with custom design",
+          descriptionbn: "\u0995\u09BE\u09B8\u09CD\u099F\u09AE \u09A1\u09BF\u099C\u09BE\u0987\u09A8 \u09B8\u09B9 \u0989\u099A\u09CD\u099A \u09AE\u09BE\u09A8\u09C7\u09B0 \u09A7\u09BE\u09A4\u09AC \u099A\u09BE\u09AC\u09BF\u09B0 \u099A\u09C7\u0987\u09A8",
+          price: 3e4,
+          category: "keychains",
+          categorybn: "\u099A\u09BE\u09AC\u09BF\u09B0 \u099A\u09C7\u0987\u09A8",
+          imageUrl: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=500",
+          stock: 200,
+          isActive: true,
+          isFeatured: false,
+          tags: JSON.stringify(["metal", "custom", "durable"])
+        },
+        {
+          name: "Water Bottle",
+          namebn: "\u09AA\u09BE\u09A8\u09BF\u09B0 \u09AC\u09CB\u09A4\u09B2",
+          description: "Insulated stainless steel water bottle",
+          descriptionbn: "\u0987\u09A8\u09B8\u09C1\u09B2\u09C7\u099F\u09C7\u09A1 \u09B8\u09CD\u099F\u09C7\u0987\u09A8\u09B2\u09C7\u09B8 \u09B8\u09CD\u099F\u09BF\u09B2 \u09AA\u09BE\u09A8\u09BF\u09B0 \u09AC\u09CB\u09A4\u09B2",
+          price: 8e4,
+          category: "bottles",
+          categorybn: "\u09AA\u09BE\u09A8\u09BF\u09B0 \u09AC\u09CB\u09A4\u09B2",
+          imageUrl: "https://images.unsplash.com/photo-1523362628745-0c100150b504?w=500",
+          stock: 60,
+          isActive: true,
+          isFeatured: true,
+          tags: JSON.stringify(["stainless-steel", "insulated", "eco-friendly"])
+        },
+        {
+          name: "Gift Hamper for Him",
+          namebn: "\u09A4\u09BE\u09B0 \u099C\u09A8\u09CD\u09AF \u0997\u09BF\u09AB\u099F \u09B9\u09CD\u09AF\u09BE\u09AE\u09CD\u09AA\u09BE\u09B0",
+          description: "Premium gift hamper with mug, t-shirt and accessories",
+          descriptionbn: "\u09AE\u0997, \u099F\u09BF-\u09B6\u09BE\u09B0\u09CD\u099F \u098F\u09AC\u0982 \u0986\u09A8\u09C1\u09B7\u09BE\u0999\u09CD\u0997\u09BF\u0995 \u09B8\u09B9 \u09AA\u09CD\u09B0\u09BF\u09AE\u09BF\u09AF\u09BC\u09BE\u09AE \u0997\u09BF\u09AB\u099F \u09B9\u09CD\u09AF\u09BE\u09AE\u09CD\u09AA\u09BE\u09B0",
+          price: 12e4,
+          category: "gift-him",
+          categorybn: "\u09A4\u09BE\u09B0 \u099C\u09A8\u09CD\u09AF \u0997\u09BF\u09AB\u099F",
+          imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500",
+          stock: 30,
+          isActive: true,
+          isFeatured: true,
+          tags: JSON.stringify(["gift", "hamper", "premium"])
+        },
+        {
+          name: "Gift Hamper for Her",
+          namebn: "\u09A4\u09BE\u09B0 \u099C\u09A8\u09CD\u09AF \u0997\u09BF\u09AB\u099F \u09B9\u09CD\u09AF\u09BE\u09AE\u09CD\u09AA\u09BE\u09B0",
+          description: "Elegant gift hamper with beautiful accessories",
+          descriptionbn: "\u09B8\u09C1\u09A8\u09CD\u09A6\u09B0 \u0986\u09A8\u09C1\u09B7\u09BE\u0999\u09CD\u0997\u09BF\u0995 \u09B8\u09B9 \u09AE\u09BE\u09B0\u09CD\u099C\u09BF\u09A4 \u0997\u09BF\u09AB\u099F \u09B9\u09CD\u09AF\u09BE\u09AE\u09CD\u09AA\u09BE\u09B0",
+          price: 15e4,
+          category: "gift-her",
+          categorybn: "\u09A4\u09BE\u09B0 \u099C\u09A8\u09CD\u09AF \u0997\u09BF\u09AB\u099F",
+          imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500",
+          stock: 25,
+          isActive: true,
+          isFeatured: true,
+          tags: JSON.stringify(["gift", "elegant", "accessories"])
+        },
+        {
+          name: "Baby Gift Set",
+          namebn: "\u09B6\u09BF\u09B6\u09C1\u09B0 \u0997\u09BF\u09AB\u099F \u09B8\u09C7\u099F",
+          description: "Adorable gift set for babies with soft toys",
+          descriptionbn: "\u09A8\u09B0\u09AE \u0996\u09C7\u09B2\u09A8\u09BE \u09B8\u09B9 \u09B6\u09BF\u09B6\u09C1\u09A6\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u0986\u09A6\u09B0\u09A3\u09C0\u09AF\u09BC \u0997\u09BF\u09AB\u099F \u09B8\u09C7\u099F",
+          price: 7e4,
+          category: "gift-babies",
+          categorybn: "\u09B6\u09BF\u09B6\u09C1\u09A6\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF",
+          imageUrl: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=500",
+          stock: 40,
+          isActive: true,
+          isFeatured: false,
+          tags: JSON.stringify(["baby", "soft", "cute"])
+        },
+        {
+          name: "Couple Set",
+          namebn: "\u0995\u09BE\u09AA\u09B2 \u09B8\u09C7\u099F",
+          description: "Matching mugs and t-shirts for couples",
+          descriptionbn: "\u0995\u09BE\u09AA\u09B2\u09A6\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u09AE\u09CD\u09AF\u09BE\u099A\u09BF\u0982 \u09AE\u0997 \u098F\u09AC\u0982 \u099F\u09BF-\u09B6\u09BE\u09B0\u09CD\u099F",
+          price: 11e4,
+          category: "couple",
+          categorybn: "\u0995\u09BE\u09AA\u09B2\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF",
+          imageUrl: "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500",
+          stock: 35,
+          isActive: true,
+          isFeatured: true,
+          tags: JSON.stringify(["couple", "matching", "romantic"])
+        },
+        {
+          name: "Luxury Gift Hamper",
+          namebn: "\u09B2\u09BE\u0995\u09CD\u09B8\u09BE\u09B0\u09BF \u0997\u09BF\u09AB\u099F \u09B9\u09CD\u09AF\u09BE\u09AE\u09CD\u09AA\u09BE\u09B0",
+          description: "Premium luxury hamper with exclusive items",
+          descriptionbn: "\u098F\u0995\u09CD\u09B8\u0995\u09CD\u09B2\u09C1\u09B8\u09BF\u09AD \u0986\u0987\u099F\u09C7\u09AE \u09B8\u09B9 \u09AA\u09CD\u09B0\u09BF\u09AE\u09BF\u09AF\u09BC\u09BE\u09AE \u09B2\u09BE\u0995\u09CD\u09B8\u09BE\u09B0\u09BF \u09B9\u09CD\u09AF\u09BE\u09AE\u09CD\u09AA\u09BE\u09B0",
+          price: 25e4,
+          category: "hampers",
+          categorybn: "\u09AA\u09CD\u09B0\u09BF\u09AE\u09BF\u09AF\u09BC\u09BE\u09AE \u09B9\u09CD\u09AF\u09BE\u09AE\u09CD\u09AA\u09BE\u09B0",
+          imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500",
+          stock: 15,
+          isActive: true,
+          isFeatured: true,
+          tags: JSON.stringify(["luxury", "premium", "exclusive"])
+        }
+      ];
+      for (const product of sampleProducts) {
+        await db.insert(products).values(product);
+      }
+      console.log("\u2705 Sample products initialized successfully!");
+    }
+  } catch (error) {
+    console.error("\u274C Error initializing sample data:", error);
+  }
+}
+initializeSampleData();
 var storage = new DatabaseStorage();
 
 // server/routes.ts
@@ -595,7 +752,7 @@ app.use((req, res, next) => {
   next();
 });
 (async () => {
-  const port = parseInt(process.env.PORT || "3001", 10);
+  const port = parseInt(process.env.PORT || "5000", 10);
   const server = await registerRoutes(app);
   server.on("error", (err) => {
     if (err.code === "EADDRINUSE") {
