@@ -8,11 +8,21 @@ import type { Product } from "@shared/schema";
 
 export default function Home() {
   const { data: featuredProducts } = useQuery<Product[]>({
-    queryKey: ["/api/products", { featured: true }],
+    queryKey: ["products", "featured"],
+    queryFn: async () => {
+      const response = await fetch('/api/products?featured=true');
+      if (!response.ok) throw new Error('Failed to fetch featured products');
+      return response.json();
+    }
   });
 
   const { data: latestProducts } = useQuery<Product[]>({
-    queryKey: ["/api/products", { limit: 8 }],
+    queryKey: ["products", "latest"],
+    queryFn: async () => {
+      const response = await fetch('/api/products?limit=8');
+      if (!response.ok) throw new Error('Failed to fetch latest products');
+      return response.json();
+    }
   });
 
   return (

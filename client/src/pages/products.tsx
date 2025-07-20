@@ -36,16 +36,27 @@ export default function Products() {
 
   // Fetch products with filters
   const { data: products, isLoading } = useQuery<Product[]>({
-    queryKey: ["/api/products", { 
-      search: searchQuery, 
-      category: selectedCategory,
-      sortBy 
-    }],
+    queryKey: ["products", searchQuery, selectedCategory, sortBy],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (searchQuery) params.set('search', searchQuery);
+      if (selectedCategory) params.set('category', selectedCategory);
+      if (sortBy) params.set('sortBy', sortBy);
+      
+      const response = await fetch(`/api/products?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch products');
+      return response.json();
+    }
   });
 
   // Fetch categories
   const { data: categories } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const response = await fetch('/api/categories');
+      if (!response.ok) throw new Error('Failed to fetch categories');
+      return response.json();
+    }
   });
 
   // Filter and sort products
