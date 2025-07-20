@@ -8,6 +8,19 @@ This is a full-stack e-commerce platform built for selling lifestyle products (m
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### January 20, 2025 - Deployment Fixes
+- Fixed deployment issues for Render hosting platform
+- Moved build dependencies (autoprefixer, postcss, tailwindcss, drizzle-kit) from devDependencies to dependencies
+- Updated build scripts for proper frontend/backend separation
+- Created deployment configuration files:
+  - `render.yaml` for backend deployment
+  - `netlify.toml` for frontend deployment
+  - `.env.example` for environment setup
+- Added comprehensive deployment guide in `DEPLOYMENT_CHECKLIST.md`
+- Fixed PostCSS configuration issues that were causing build failures
+
 ## System Architecture
 
 ### Frontend Architecture

@@ -152,11 +152,14 @@ npx tsx server/seed.ts
 
 ### 3.1 Prepare for Render
 1. Make sure your code is pushed to GitHub
-2. Your `package.json` should have these scripts:
+2. Ensure all build dependencies are in the dependencies section (already fixed)
+3. Your `package.json` should have these scripts:
 ```json
 {
   "scripts": {
-    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "vite build",
+    "build:backend": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js"
   }
 }
