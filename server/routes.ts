@@ -9,6 +9,11 @@ import { Router } from "express";
 
 const appRouter = Router();
 
+// Handle preflight requests for all routes
+appRouter.options("*", (req, res) => {
+  res.status(200).end();
+});
+
 // Products endpoints
 appRouter.get("/api/products", async (req, res) => {
   try {
@@ -105,25 +110,28 @@ const createOrderSchema = z.object({
 
 appRouter.post("/api/orders", async (req, res) => {
   try {
+    console.log("📦 Creating order with data:", JSON.stringify(req.body, null, 2));
+    
     const validatedData = createOrderSchema.parse(req.body);
+    console.log("✅ Data validation passed");
 
     // Map frontend fields to database fields
     const orderData = {
       customer_name: validatedData.customerName,
       customer_phone: validatedData.customerPhone,
-      customer_email: validatedData.customerEmail,
+      customer_email: validatedData.customerEmail || null,
       customer_address: validatedData.customerAddress,
-      delivery_location: validatedData.deliveryLocation,
+      delivery_location: validatedData.deliveryLocation || null,
       payment_method: validatedData.paymentMethod,
-      special_instructions: validatedData.specialInstructions,
-      promo_code: validatedData.promoCode,
+      special_instructions: validatedData.specialInstructions || null,
+      promo_code: validatedData.promoCode || null,
       items: validatedData.items.map(item => ({
         id: item.id,
         name: item.name,
         name_bn: item.namebn || item.name,
         price: item.price,
         quantity: item.quantity,
-        variant: item.variant
+        variant: item.variant || {}
       })),
       subtotal: validatedData.subtotal,
       delivery_fee: validatedData.deliveryFee,
@@ -132,7 +140,9 @@ appRouter.post("/api/orders", async (req, res) => {
       final_amount: validatedData.finalAmount
     };
 
+    console.log("🔄 Creating order in database...");
     const order = await storage.createOrder(orderData);
+    console.log("✅ Order created successfully:", order.order_id);
 
     // Map database fields back to frontend expected format
     const mappedOrder = {
@@ -159,11 +169,22 @@ appRouter.post("/api/orders", async (req, res) => {
 
     res.status(201).json(mappedOrder);
   } catch (error) {
-    console.error("Error creating order:", error);
+    console.error("❌ Error creating order:", error);
+    console.error("Error stack:", error instanceof Error ? error.stack : 'Unknown error');
+    
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: "Invalid order data", details: error.errors });
+      console.error("Validation errors:", error.errors);
+      return res.status(400).json({ 
+        error: "Invalid order data", 
+        details: error.errors,
+        receivedData: req.body
+      });
     }
-    res.status(500).json({ error: "Failed to create order" });
+    
+    res.status(500).json({ 
+      error: "Failed to create order",
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
+    });
   }
 });
 
