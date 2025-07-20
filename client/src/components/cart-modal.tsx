@@ -195,7 +195,7 @@ export default function CartModal() {
           id: item.id,
           name: item.name,
           namebn: item.namebn,
-          price: item.price,
+          price: item.price * 100, // Convert to paisa
           quantity: item.quantity,
           category: item.category,
           image: item.image
@@ -208,10 +208,10 @@ export default function CartModal() {
         paymentMethod: orderForm.paymentMethod,
         specialInstructions: orderForm.specialInstructions,
         promoCode: "",
-        totalAmount: subtotal,
+        totalAmount: Math.round(subtotal * 100), // Convert to paisa
         discountAmount: 0,
-        deliveryFee: deliveryFee,
-        finalAmount: total
+        deliveryFee: Math.round(deliveryFee * 100), // Convert to paisa
+        finalAmount: Math.round(total * 100) // Convert to paisa
       };
 
       const response = await fetch(getApiUrl("/api/orders"), {
