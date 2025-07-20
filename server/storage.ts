@@ -11,10 +11,19 @@ if (!connectionString) {
 }
 
 const client = postgres(connectionString, {
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  max: 10,
+  idle_timeout: 20,
+  connect_timeout: 10,
 });
-
 const db = drizzle(client);
+
+// Test database connection
+client`SELECT 1`.then(() => {
+  console.log("✅ Database connected successfully");
+}).catch((error) => {
+  console.error("❌ Database connection failed:", error);
+});
 
 export const storage = {
   // Product methods
@@ -91,63 +100,47 @@ export const storage = {
   },
 
   // Order methods
-  async getOrders(): Promise<Order[]> {
+  getOrders: async () => {
     try {
-      const result = await db.select().from(orders).orderBy(desc(orders.createdAt));
-      return result;
+      return await db.select().from(orders).orderBy(desc(orders.createdAt));
     } catch (error) {
       console.error("Error fetching orders:", error);
-      return [];
+      throw new Error("Failed to fetch orders");
     }
   },
 
-  async getOrder(id: string): Promise<Order | null> {
+  // Get single order by ID
+  getOrder: async (id: string) => {
     try {
-      const result = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
-      return result[0] || null;
+      const [order] = await db.select().from(orders).where(eq(orders.id, id));
+      return order;
     } catch (error) {
       console.error("Error fetching order:", error);
-      return null;
+      throw new Error("Failed to fetch order");
     }
   },
 
-  async getOrderByOrderId(orderId: string): Promise<Order | null> {
+  // Get order by order ID (for tracking)
+  getOrderByOrderId: async (orderId: string) => {
     try {
-      const result = await db.select().from(orders).where(eq(orders.orderId, orderId)).limit(1);
-      return result[0] || null;
+      const [order] = await db.select().from(orders).where(eq(orders.orderId, orderId));
+      return order;
     } catch (error) {
-      console.error("Error fetching order by orderId:", error);
-      return null;
+      console.error("Error fetching order by order ID:", error);
+      throw new Error("Failed to fetch order");
     }
   },
 
-  async createOrder(data: any): Promise<Order> {
+  // Create order
+  createOrder: async (orderData: any) => {
     try {
-      const orderData = {
-        id: data.id,
-        orderId: data.order_id,
-        customerName: data.customer_name,
-        customerPhone: data.customer_phone,
-        customerAddress: data.customer_address,
-        customerEmail: data.customer_email,
-        deliveryLocation: data.delivery_location,
-        paymentMethod: data.payment_method,
-        specialInstructions: data.special_instructions,
-        promoCode: data.promo_code,
-        items: data.items,
-        subtotal: data.subtotal,
-        total: data.total_amount,
-        discountAmount: data.discount_amount || 0,
-        deliveryFee: data.delivery_fee || 0,
-        finalAmount: data.final_amount,
-        status: data.status || 'pending'
-      };
-
-      const result = await db.insert(orders).values(orderData).returning();
-      return result[0];
+      console.log("Creating order with data:", orderData);
+      const [order] = await db.insert(orders).values(orderData).returning();
+      console.log("Order created successfully:", order);
+      return order;
     } catch (error) {
       console.error("Error creating order:", error);
-      throw error;
+      throw new Error("Failed to create order: " + error.message);
     }
   },
 

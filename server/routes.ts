@@ -119,26 +119,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("📝 Creating order with data:", req.body);
 
+      // Validate required fields
+      if (!req.body.customerName || !req.body.customerPhone || !req.body.customerAddress) {
+        return res.status(400).json({ error: "Missing required fields: customerName, customerPhone, customerAddress" });
+      }
+
       // Generate order ID
       const orderId = `TXR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
 
       const orderData = {
         id: crypto.randomUUID(),
-        order_id: orderId,
-        customer_name: req.body.customerName,
-        customer_phone: req.body.customerPhone,
-        customer_address: req.body.customerAddress,
-        customer_email: req.body.customerEmail || null,
-        delivery_location: req.body.deliveryLocation || null,
-        payment_method: req.body.paymentMethod || 'cash_on_delivery',
-        special_instructions: req.body.specialInstructions || null,
-        promo_code: req.body.promoCode || null,
-        items: JSON.stringify(req.body.items || []),
+        orderId: orderId,
+        customerName: req.body.customerName,
+        customerPhone: req.body.customerPhone,
+        customerAddress: req.body.customerAddress,
+        customerEmail: req.body.customerEmail || null,
+        deliveryLocation: req.body.deliveryLocation || null,
+        paymentMethod: req.body.paymentMethod || 'cash_on_delivery',
+        specialInstructions: req.body.specialInstructions || null,
+        promoCode: req.body.promoCode || null,
+        items: req.body.items || [],
         subtotal: req.body.subtotal || req.body.totalAmount || 0,
-        total_amount: req.body.totalAmount || 0,
-        discount_amount: req.body.discountAmount || 0,
-        delivery_fee: req.body.deliveryFee || 0,
-        final_amount: req.body.finalAmount || req.body.totalAmount || 0,
+        totalAmount: req.body.totalAmount || 0,
+        discountAmount: req.body.discountAmount || 0,
+        deliveryFee: req.body.deliveryFee || 0,
+        finalAmount: req.body.finalAmount || req.body.totalAmount || 0,
         status: 'pending'
       };
 

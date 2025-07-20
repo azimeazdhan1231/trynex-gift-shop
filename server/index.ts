@@ -4,38 +4,6 @@ import { setupVite, serveStatic } from "./vite";
 
 const app = express();
 
-// CORS configuration
-app.use((req, res, next) => {
-  const allowedOrigins = [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'https://trynex-gift-shop.netlify.app',
-    /\.replit\.dev$/,
-    /\.repl\.co$/
-  ];
-
-  const origin = req.headers.origin;
-
-  if (origin && allowedOrigins.some(allowed => 
-    typeof allowed === 'string' ? allowed === origin : allowed.test(origin)
-  )) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-    return;
-  }
-
-  next();
-});
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
 import cors from "cors";
 import { storage } from "./storage";
 
@@ -43,7 +11,7 @@ const DATABASE_URL = process.env.DATABASE_URL || "postgresql://postgres.wifsqonb
 
 console.log('🔗 Database connecting to:', DATABASE_URL.replace(/:[^:@]*@/, ':****@'));
 
-// Configure CORS
+// Configure CORS properly
 app.use(cors({
   origin: [
     'http://localhost:5173',
@@ -51,21 +19,40 @@ app.use(cors({
     'http://localhost:5000',
     'https://trynex-gift-shop.netlify.app',
     'https://dapper-biscochitos-7e14c3.netlify.app',
+    'https://trynex-backend-32fp.onrender.com',
     /\.netlify\.app$/,
     /\.vercel\.app$/,
     /\.replit\.dev$/,
-    /\.replit\.co$/
+    /\.repl\.co$/,
+    /\.onrender\.com$/
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   optionsSuccessStatus: 200
 }));
+
+// Additional CORS headers for preflight requests
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+    return;
+  }
+  next();
+});
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 app.use(express.static("dist"));
 
 (async () => {
-  const port = parseInt(process.env.PORT || '3001', 10);
+  const port = parseInt(process.env.PORT || '5000', 10);
 
   const server = await registerRoutes(app);
 
