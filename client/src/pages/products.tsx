@@ -44,19 +44,10 @@ export default function Products() {
       if (selectedCategory) params.set('category', selectedCategory);
       if (sortBy) params.set('sortBy', sortBy);
       
-      const response = await fetch(getApiUrl(`/api/products?${params.toString()}`), {
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      });
+      const response = await fetch(getApiUrl(`/api/products?${params.toString()}`));
       if (!response.ok) throw new Error('Failed to fetch products');
       return response.json();
-    },
-    staleTime: 0,
-    cacheTime: 0,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true
+    }
   });
 
   // Fetch categories

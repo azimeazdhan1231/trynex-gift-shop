@@ -1,14 +1,9 @@
 
-// API Configuration - Use local backend only
-const API_BASE_URL = "http://localhost:3001";
+// Always use production Render backend - no localhost switching
+const API_BASE_URL = 'https://trynex-backend-32fp.onrender.com';
 
-export function getApiUrl(path: string): string {
-  const url = `${API_BASE_URL}${path}`;
-  console.log(`🎯 Fetching from: ${url}`);
+export function getApiUrl(endpoint: string): string {
+  const url = `${API_BASE_URL}${endpoint}`;
+  console.log('🔧 API Config: Using Render backend:', url);
   return url;
 }
-
-export const config = {
-  apiBaseUrl: API_BASE_URL,
-  isDevelopment: true
-};

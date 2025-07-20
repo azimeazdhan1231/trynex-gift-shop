@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Star, ShoppingCart, Heart, Search, ArrowRight, Gift, Truck, Shield, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,12 +20,7 @@ export default function Home() {
       if (import.meta.env.DEV) {
         console.log('🎯 Fetching featured products from:', url);
       }
-      const response = await fetch(url, {
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      });
+      const response = await fetch(url);
       if (!response.ok) {
         if (import.meta.env.DEV) {
           console.error('❌ Failed to fetch featured products:', response.status, response.statusText);
@@ -38,11 +33,7 @@ export default function Home() {
       }
       return data;
     },
-    enabled: typeof window !== 'undefined',
-    staleTime: 0,
-    cacheTime: 0,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true
+    enabled: typeof window !== 'undefined' // Only run in browser, not during SSR
   });
 
   const { data: latestProducts, isLoading: latestLoading, error: latestError } = useQuery<Product[]>({
@@ -52,12 +43,7 @@ export default function Home() {
       if (import.meta.env.DEV) {
         console.log('🎯 Fetching latest products from:', url);
       }
-      const response = await fetch(url, {
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      });
+      const response = await fetch(url);
       if (!response.ok) {
         if (import.meta.env.DEV) {
           console.error('❌ Failed to fetch latest products:', response.status, response.statusText);
@@ -70,12 +56,9 @@ export default function Home() {
       }
       return data;
     },
-    enabled: typeof window !== 'undefined',
+    enabled: typeof window !== 'undefined', // Only run in browser, not during SSR
     retry: 1,
-    staleTime: 0, // Always fetch fresh data
-    cacheTime: 0, // Don't cache
-    refetchOnWindowFocus: true,
-    refetchOnMount: true
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Fetch all products for categories
@@ -102,40 +85,6 @@ export default function Home() {
     enabled: typeof window !== 'undefined' // Only run in browser, not during SSR
   });
 
-  // Flash Sale Timer - Set to 24 hours from now
-  const [timeLeft, setTimeLeft] = useState({
-    hours: 23,
-    minutes: 59,
-    seconds: 59
-  });
-
-  useEffect(() => {
-    // Set flash sale end time to 24 hours from now
-    const saleEndTime = new Date();
-    saleEndTime.setHours(saleEndTime.getHours() + 24);
-
-    const timer = setInterval(() => {
-      const now = new Date().getTime();
-      const saleEnd = saleEndTime.getTime();
-      const distance = saleEnd - now;
-
-      if (distance > 0) {
-        setTimeLeft({
-          hours: Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-          minutes: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
-          seconds: Math.floor((distance % (1000 * 60)) / 1000)
-        });
-      } else {
-        // Reset timer when it reaches zero
-        const newSaleEnd = new Date();
-        newSaleEnd.setHours(newSaleEnd.getHours() + 24);
-        saleEndTime.setTime(newSaleEnd.getTime());
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
   return (
     <div className="min-h-screen">
       {/* Hero Slider */}
@@ -157,17 +106,17 @@ export default function Home() {
 
             <div className="flex items-center space-x-2 md:space-x-4 bg-white/20 backdrop-blur-sm rounded-2xl px-4 md:px-6 py-3">
               <div className="text-center">
-                <div className="text-2xl md:text-3xl font-bold animate-pulse">{timeLeft.hours}</div>
+                <div className="text-2xl md:text-3xl font-bold animate-pulse">12</div>
                 <div className="text-xs md:text-sm opacity-80">HOURS</div>
               </div>
               <div className="text-2xl md:text-3xl animate-pulse">:</div>
               <div className="text-center">
-                <div className="text-2xl md:text-3xl font-bold animate-pulse">{timeLeft.minutes}</div>
+                <div className="text-2xl md:text-3xl font-bold animate-pulse">34</div>
                 <div className="text-xs md:text-sm opacity-80">MINS</div>
               </div>
               <div className="text-2xl md:text-3xl animate-pulse">:</div>
               <div className="text-center">
-                <div className="text-2xl md:text-3xl font-bold animate-pulse">{timeLeft.seconds}</div>
+                <div className="text-2xl md:text-3xl font-bold animate-pulse">56</div>
                 <div className="text-xs md:text-sm opacity-80">SECS</div>
               </div>
             </div>

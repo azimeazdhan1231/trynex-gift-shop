@@ -1,5 +1,3 @@
-
-import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -12,7 +10,7 @@ import Admin from "@/pages/admin";
 import TrackOrder from "@/pages/track-order";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
-import { CartPage } from "@/components/cart-modal";
+import CartModal from "@/components/cart-modal";
 
 function Router() {
   return (
@@ -21,12 +19,12 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/products" component={Products} />
-        <Route path="/cart" component={CartPage} />
         <Route path="/admin" component={Admin} />
         <Route path="/track-order" component={TrackOrder} />
         <Route component={NotFound} />
       </Switch>
       <Footer />
+      <CartModal />
     </div>
   );
 }

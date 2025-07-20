@@ -1,440 +1,323 @@
-
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { 
-  pgTable, 
-  serial, 
-  text, 
-  integer, 
-  boolean, 
-  timestamp, 
-  jsonb, 
-  decimal 
-} from "drizzle-orm/pg-core";
-import { eq, desc, like, and, sql } from "drizzle-orm";
 
-// Database URL
-const DATABASE_URL = "postgresql://postgres.wifsqonbnfmwtqvupqbk:Amits@12345@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres";
+// Supabase connection string from environment
+const connectionString = process.env.DATABASE_URL || "postgresql://postgres.wifsqonbnfmwtqvupqbk:Amits@12345@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres";
+import { products, orders, promoCodes, adminUsers, type Product, type InsertProduct, type Order, type InsertOrder, type PromoCode, type InsertPromoCode, type AdminUser, type InsertAdminUser } from "@shared/schema";
+import { eq, desc, like, and, or } from "drizzle-orm";
 
-// Initialize postgres client
-const client = postgres(DATABASE_URL, {
-  ssl: 'require',
-  max: 10,
-  idle_timeout: 20,
-  connect_timeout: 60
+if (!connectionString) {
+  throw new Error("DATABASE_URL (Supabase connection string) is required");
+}
+
+const client = postgres(connectionString, {
+  ssl: { rejectUnauthorized: false }
 });
-
-// Initialize drizzle
 const db = drizzle(client);
 
-// Define tables
-export const products = pgTable('products', {
-  id: serial('id').primaryKey(),
-  name: text('name').notNull(),
-  name_bn: text('name_bn'),
-  description: text('description'),
-  description_bn: text('description_bn'),
-  price: integer('price').notNull(),
-  category: text('category').notNull(),
-  category_bn: text('category_bn'),
-  image_url: text('image_url'),
-  stock: integer('stock').default(0),
-  is_active: boolean('is_active').default(true),
-  is_featured: boolean('is_featured').default(false),
-  tags: jsonb('tags'),
-  variants: jsonb('variants'),
-  created_at: timestamp('created_at').defaultNow(),
-  updated_at: timestamp('updated_at').defaultNow()
-});
+export interface IStorage {
+  // Products
+  getProducts(category?: string, search?: string, featured?: boolean): Promise<Product[]>;
+  getProduct(id: number): Promise<Product | undefined>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined>;
+  deleteProduct(id: number): Promise<boolean>;
 
-export const orders = pgTable('orders', {
-  id: serial('id').primaryKey(),
-  order_id: text('order_id').notNull().unique(),
-  customer_name: text('customer_name').notNull(),
-  customer_phone: text('customer_phone').notNull(),
-  customer_email: text('customer_email'),
-  customer_address: text('customer_address').notNull(),
-  delivery_location: text('delivery_location'),
-  payment_method: text('payment_method').default('cash_on_delivery'),
-  special_instructions: text('special_instructions'),
-  promo_code: text('promo_code'),
-  items: jsonb('items').notNull(),
-  subtotal: integer('subtotal').notNull(),
-  delivery_fee: integer('delivery_fee').default(6000),
-  discount_amount: integer('discount_amount').default(0),
-  total_amount: integer('total_amount').notNull(),
-  final_amount: integer('final_amount').notNull(),
-  status: text('status').default('pending'),
-  created_at: timestamp('created_at').defaultNow(),
-  updated_at: timestamp('updated_at').defaultNow()
-});
+  // Orders
+  getOrders(): Promise<Order[]>;
+  getOrder(orderId: string): Promise<Order | undefined>;
+  createOrder(order: InsertOrder): Promise<Order>;
+  updateOrderStatus(orderId: string, status: string): Promise<Order | undefined>;
 
-export const promoCodes = pgTable('promo_codes', {
-  id: serial('id').primaryKey(),
-  code: text('code').notNull().unique(),
-  discount_percentage: integer('discount_percentage').notNull(),
-  is_active: boolean('is_active').default(true),
-  expires_at: timestamp('expires_at'),
-  created_at: timestamp('created_at').defaultNow(),
-  updated_at: timestamp('updated_at').defaultNow()
-});
+  // Promo Codes
+  getPromoCodes(): Promise<PromoCode[]>;
+  getPromoCode(code: string): Promise<PromoCode | undefined>;
+  createPromoCode(promoCode: InsertPromoCode): Promise<PromoCode>;
+  updatePromoCode(id: number, promoCode: Partial<InsertPromoCode>): Promise<PromoCode | undefined>;
+  deletePromoCode(id: number): Promise<boolean>;
 
-class Storage {
-  async init() {
-    try {
-      console.log('🔄 Testing database connection...');
-      
-      // Test connection
-      const result = await db.execute(sql`SELECT 1 as test`);
-      console.log('✅ Database connection test successful');
+  // Admin Users
+  getAdminUser(username: string): Promise<AdminUser | undefined>;
+  createAdminUser(adminUser: InsertAdminUser): Promise<AdminUser>;
+}
 
-      // Create tables if they don't exist
-      await this.createTables();
-      
-      // Seed data if needed
-      await this.seedData();
-      
-      console.log('✅ Database initialization complete');
-    } catch (error) {
-      console.error('❌ Database initialization failed:', error);
-      throw error;
+export class DatabaseStorage implements IStorage {
+  // Products
+  async getProducts(category?: string, search?: string, featured?: boolean): Promise<Product[]> {
+    const conditions = [eq(products.isActive, true)];
+
+    if (category) {
+      conditions.push(eq(products.category, category));
     }
+    if (search) {
+      conditions.push(
+        or(
+          like(products.name, `%${search}%`),
+          like(products.namebn, `%${search}%`),
+          like(products.description, `%${search}%`)
+        )!
+      );
+    }
+    if (featured !== undefined) {
+      conditions.push(eq(products.isFeatured, featured));
+    }
+
+    return await db.select().from(products).where(and(...conditions)).orderBy(desc(products.createdAt));
   }
 
-  async createTables() {
-    try {
-      console.log('🔄 Creating tables...');
-      
-      // Create products table
-      await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS products (
-          id SERIAL PRIMARY KEY,
-          name TEXT NOT NULL,
-          name_bn TEXT,
-          description TEXT,
-          description_bn TEXT,
-          price INTEGER NOT NULL,
-          category TEXT NOT NULL,
-          category_bn TEXT,
-          image_url TEXT,
-          stock INTEGER DEFAULT 0,
-          is_active BOOLEAN DEFAULT true,
-          is_featured BOOLEAN DEFAULT false,
-          tags JSONB,
-          variants JSONB,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        )
-      `);
-
-      // Create orders table
-      await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS orders (
-          id SERIAL PRIMARY KEY,
-          order_id TEXT NOT NULL UNIQUE,
-          customer_name TEXT NOT NULL,
-          customer_phone TEXT NOT NULL,
-          customer_email TEXT,
-          customer_address TEXT NOT NULL,
-          delivery_location TEXT,
-          payment_method TEXT DEFAULT 'cash_on_delivery',
-          special_instructions TEXT,
-          promo_code TEXT,
-          items JSONB NOT NULL,
-          subtotal INTEGER NOT NULL,
-          delivery_fee INTEGER DEFAULT 6000,
-          discount_amount INTEGER DEFAULT 0,
-          total_amount INTEGER NOT NULL,
-          final_amount INTEGER NOT NULL,
-          status TEXT DEFAULT 'pending',
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        )
-      `);
-
-      // Create promo_codes table
-      await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS promo_codes (
-          id SERIAL PRIMARY KEY,
-          code TEXT NOT NULL UNIQUE,
-          discount_percentage INTEGER NOT NULL,
-          is_active BOOLEAN DEFAULT true,
-          expires_at TIMESTAMP,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        )
-      `);
-
-      console.log('✅ Tables created successfully');
-    } catch (error) {
-      console.error('❌ Error creating tables:', error);
-      throw error;
-    }
+  async getProduct(id: number): Promise<Product | undefined> {
+    const result = await db.select().from(products).where(eq(products.id, id)).limit(1);
+    return result[0];
   }
 
-  async seedData() {
-    try {
-      // Check if products already exist
-      const existingProducts = await db.select().from(products).limit(1);
-      if (existingProducts.length > 0) {
-        console.log('📊 Products already exist, skipping seed');
-        return;
-      }
-
-      console.log('🌱 Seeding initial data...');
-
-      const sampleProducts = [
-        {
-          name: "Classic Ceramic Mug",
-          name_bn: "ক্লাসিক সিরামিক মগ",
-          description: "Perfect for your morning coffee or tea",
-          description_bn: "আপনার সকালের কফি বা চায়ের জন্য আদর্শ",
-          price: 55000,
-          category: "mugs",
-          category_bn: "মগ",
-          image_url: "https://images.unsplash.com/photo-1514228742587-6b1558fcf93a?auto=format&fit=crop&w=500&q=80",
-          stock: 100,
-          is_active: true,
-          is_featured: true,
-          tags: ["ceramic", "coffee", "tea"],
-          variants: { colors: ["white", "black", "blue"], sizes: ["small", "medium", "large"] }
-        },
-        {
-          name: "Premium Cotton T-Shirt",
-          name_bn: "প্রিমিয়াম কটন টি-শার্ট",
-          description: "Comfortable and stylish t-shirt for everyday wear",
-          description_bn: "দৈনন্দিন পরিধানের জন্য আরামদায়ক এবং স্টাইলিশ টি-শার্ট",
-          price: 55000,
-          category: "tshirts",
-          category_bn: "টি-শার্ট",
-          image_url: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=500&q=80",
-          stock: 150,
-          is_active: true,
-          is_featured: true,
-          tags: ["cotton", "casual", "comfortable"],
-          variants: { colors: ["red", "blue", "green"], sizes: ["S", "M", "L", "XL"] }
-        },
-        {
-          name: "Personalized Keychain",
-          name_bn: "ব্যক্তিগতকৃত চাবির চেইন",
-          description: "Custom keychain with your name or message",
-          description_bn: "আপনার নাম বা বার্তা সহ কাস্টম কীচেইন",
-          price: 30000,
-          category: "keychains",
-          category_bn: "চাবির চেইন",
-          image_url: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=500&q=80",
-          stock: 200,
-          is_active: true,
-          is_featured: false,
-          tags: ["personalized", "custom", "gift"],
-          variants: { materials: ["metal", "leather", "plastic"] }
-        }
-      ];
-
-      await db.insert(products).values(sampleProducts);
-      console.log('✅ Sample products seeded successfully');
-
-      // Seed a promo code
-      await db.insert(promoCodes).values({
-        code: "WELCOME30",
-        discount_percentage: 30,
-        is_active: true,
-        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
-      });
-      console.log('✅ Sample promo code seeded successfully');
-
-    } catch (error) {
-      console.error('❌ Error seeding data:', error);
-      throw error;
-    }
+  async createProduct(product: InsertProduct): Promise<Product> {
+    const result = await db.insert(products).values(product).returning();
+    return result[0];
   }
 
-  async getProducts(options: {
-    category?: string;
-    search?: string;
-    featured?: boolean;
-    limit?: number;
-  } = {}) {
-    try {
-      let query = db.select().from(products).where(eq(products.is_active, true));
-
-      if (options.category) {
-        query = query.where(eq(products.category, options.category));
-      }
-
-      if (options.search) {
-        query = query.where(
-          sql`${products.name} ILIKE ${`%${options.search}%`} OR ${products.name_bn} ILIKE ${`%${options.search}%`}`
-        );
-      }
-
-      if (options.featured) {
-        query = query.where(eq(products.is_featured, true));
-      }
-
-      query = query.orderBy(desc(products.created_at));
-
-      if (options.limit) {
-        query = query.limit(options.limit);
-      }
-
-      return await query;
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      throw error;
-    }
+  async updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined> {
+    const result = await db.update(products).set({
+      ...product,
+      updatedAt: new Date()
+    }).where(eq(products.id, id)).returning();
+    return result[0];
   }
 
-  async getProduct(id: number) {
-    try {
-      const result = await db.select().from(products).where(eq(products.id, id)).limit(1);
-      return result[0] || null;
-    } catch (error) {
-      console.error('Error fetching product:', error);
-      throw error;
-    }
+  async deleteProduct(id: number): Promise<boolean> {
+    const result = await db.update(products).set({
+      isActive: false,
+      updatedAt: new Date()
+    }).where(eq(products.id, id));
+    return result.rowCount > 0;
   }
 
-  async createOrder(orderData: any) {
-    try {
-      const orderId = `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-      
-      const result = await db.insert(orders).values({
-        order_id: orderId,
-        ...orderData
-      }).returning();
-
-      return result[0];
-    } catch (error) {
-      console.error('Error creating order:', error);
-      throw error;
-    }
+  // Orders
+  async getOrders(): Promise<Order[]> {
+    return await db.select().from(orders).orderBy(desc(orders.createdAt));
   }
 
-  async getOrderByOrderId(orderId: string) {
-    try {
-      const result = await db.select().from(orders).where(eq(orders.order_id, orderId)).limit(1);
-      return result[0] || null;
-    } catch (error) {
-      console.error('Error fetching order:', error);
-      throw error;
-    }
+  async getOrder(orderId: string): Promise<Order | undefined> {
+    const result = await db.select().from(orders).where(eq(orders.orderId, orderId)).limit(1);
+    return result[0];
   }
 
-  async getPromoCode(code: string) {
-    try {
-      const result = await db.select().from(promoCodes).where(eq(promoCodes.code, code)).limit(1);
-      return result[0] || null;
-    } catch (error) {
-      console.error('Error fetching promo code:', error);
-      throw error;
-    }
+  async createOrder(order: InsertOrder): Promise<Order> {
+    const result = await db.insert(orders).values(order).returning();
+    return result[0];
   }
 
-  async addProduct(productData: any) {
-    try {
-      const result = await db.insert(products).values(productData).returning();
-      return result[0];
-    } catch (error) {
-      console.error('Error adding product:', error);
-      throw error;
-    }
+  async updateOrderStatus(orderId: string, status: string): Promise<Order | undefined> {
+    const result = await db.update(orders).set({
+      status,
+      updatedAt: new Date()
+    }).where(eq(orders.orderId, orderId)).returning();
+    return result[0];
   }
 
-  async addPromoCode(promoData: any) {
-    try {
-      // Check if promo code already exists
-      const existing = await this.getPromoCode(promoData.code);
-      if (existing) {
-        console.log(`⚠️ Promo code ${promoData.code} already exists, skipping`);
-        return existing;
-      }
-      
-      const result = await db.insert(promoCodes).values(promoData).returning();
-      return result[0];
-    } catch (error) {
-      console.error('Error adding promo code:', error);
-      throw error;
-    }
+  // Promo Codes
+  async getPromoCodes(): Promise<PromoCode[]> {
+    return await db.select().from(promoCodes).orderBy(desc(promoCodes.createdAt));
   }
 
-  async getPromoCodes() {
-    try {
-      return await db.select().from(promoCodes).orderBy(desc(promoCodes.created_at));
-    } catch (error) {
-      console.error('Error fetching promo codes:', error);
-      throw error;
-    }
+  async getPromoCode(code: string): Promise<PromoCode | undefined> {
+    const result = await db.select().from(promoCodes).where(
+      and(
+        eq(promoCodes.code, code),
+        eq(promoCodes.isActive, true)
+      )
+    ).limit(1);
+    return result[0];
   }
 
-  async createPromoCode(promoData: any) {
-    try {
-      const result = await db.insert(promoCodes).values(promoData).returning();
-      return result[0];
-    } catch (error) {
-      console.error('Error creating promo code:', error);
-      throw error;
-    }
+  async createPromoCode(promoCode: InsertPromoCode): Promise<PromoCode> {
+    const result = await db.insert(promoCodes).values(promoCode).returning();
+    return result[0];
   }
 
-  async updatePromoCode(id: number, promoData: any) {
-    try {
-      const result = await db.update(promoCodes)
-        .set({ ...promoData, updated_at: new Date() })
-        .where(eq(promoCodes.id, id))
-        .returning();
-      return result[0];
-    } catch (error) {
-      console.error('Error updating promo code:', error);
-      throw error;
-    }
+  async updatePromoCode(id: number, promoCode: Partial<InsertPromoCode>): Promise<PromoCode | undefined> {
+    const result = await db.update(promoCodes).set(promoCode).where(eq(promoCodes.id, id)).returning();
+    return result[0];
   }
 
-  async deletePromoCode(id: number) {
-    try {
-      await db.delete(promoCodes).where(eq(promoCodes.id, id));
-      return true;
-    } catch (error) {
-      console.error('Error deleting promo code:', error);
-      return false;
-    }
+  async deletePromoCode(id: number): Promise<boolean> {
+    const result = await db.delete(promoCodes).where(eq(promoCodes.id, id));
+    return result.rowCount > 0;
   }
 
-  async updateOrderStatus(orderId: string, status: string) {
-    try {
-      const result = await db.update(orders)
-        .set({ status, updated_at: new Date() })
-        .where(eq(orders.order_id, orderId))
-        .returning();
-      return result[0];
-    } catch (error) {
-      console.error('Error updating order status:', error);
-      throw error;
-    }
+  // Admin Users
+  async getAdminUser(username: string): Promise<AdminUser | undefined> {
+    const result = await db.select().from(adminUsers).where(eq(adminUsers.username, username)).limit(1);
+    return result[0];
   }
 
-  async getOrders() {
-    try {
-      return await db.select().from(orders).orderBy(desc(orders.created_at));
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-      throw error;
-    }
-  }
-
-  async clearAllData() {
-    try {
-      console.log('🗑️ Clearing all existing data...');
-      await db.delete(orders);
-      await db.delete(promoCodes);
-      await db.delete(products);
-      console.log('✅ All data cleared successfully');
-    } catch (error) {
-      console.error('❌ Error clearing data:', error);
-      throw error;
-    }
+  async createAdminUser(adminUser: InsertAdminUser): Promise<AdminUser> {
+    const result = await db.insert(adminUsers).values(adminUser).returning();
+    return result[0];
   }
 }
 
-export const storage = new Storage();
-export { db };
+// Initialize sample data
+async function initializeSampleData() {
+  try {
+    const existingProducts = await db.select().from(products).limit(1);
+    if (existingProducts.length === 0) {
+      console.log("🌱 Initializing sample products...");
+
+      const sampleProducts = [
+        {
+          name: "Classic Coffee Mug",
+          namebn: "ক্লাসিক কফি মগ",
+          description: "Premium ceramic coffee mug perfect for your morning coffee",
+          descriptionbn: "আপনার সকালের কফির জন্য নিখুঁত প্রিমিয়াম সিরামিক কফি মগ",
+          price: 55000,
+          category: "mugs",
+          categorybn: "মগ",
+          imageUrl: "https://images.unsplash.com/photo-1514228742587-6b1558fcf93d?w=500",
+          stock: 100,
+          isActive: true,
+          isFeatured: true,
+          tags: JSON.stringify(["coffee", "ceramic", "daily-use"])
+        },
+        {
+          name: "Cotton T-Shirt",
+          namebn: "কটন টি-শার্ট",
+          description: "Comfortable 100% cotton t-shirt for everyday wear",
+          descriptionbn: "দৈনন্দিন পরিধানের জন্য আরামদায়ক ১০০% কটন টি-শার্ট",
+          price: 45000,
+          category: "tshirts",
+          categorybn: "টি-শার্ট",
+          imageUrl: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500",
+          stock: 50,
+          isActive: true,
+          isFeatured: true,
+          tags: JSON.stringify(["cotton", "comfortable", "casual"])
+        },
+        {
+          name: "Designer Mug",
+          namebn: "ডিজাইনার মগ",
+          description: "Beautiful designer mug with unique patterns",
+          descriptionbn: "অনন্য নকশা সহ সুন্দর ডিজাইনার মগ",
+          price: 65000,
+          category: "mugs",
+          categorybn: "মগ",
+          imageUrl: "https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e?w=500",
+          stock: 75,
+          isActive: true,
+          isFeatured: false,
+          tags: JSON.stringify(["designer", "ceramic", "gift"])
+        },
+        {
+          name: "Premium Keychain",
+          namebn: "প্রিমিয়াম চাবির চেইন",
+          description: "High-quality metal keychain with custom design",
+          descriptionbn: "কাস্টম ডিজাইন সহ উচ্চ মানের ধাতব চাবির চেইন",
+          price: 30000,
+          category: "keychains",
+          categorybn: "চাবির চেইন",
+          imageUrl: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=500",
+          stock: 200,
+          isActive: true,
+          isFeatured: false,
+          tags: JSON.stringify(["metal", "custom", "durable"])
+        },
+        {
+          name: "Water Bottle",
+          namebn: "পানির বোতল",
+          description: "Insulated stainless steel water bottle",
+          descriptionbn: "ইনসুলেটেড স্টেইনলেস স্টিল পানির বোতল",
+          price: 80000,
+          category: "bottles",
+          categorybn: "পানির বোতল",
+          imageUrl: "https://images.unsplash.com/photo-1523362628745-0c100150b504?w=500",
+          stock: 60,
+          isActive: true,
+          isFeatured: true,
+          tags: JSON.stringify(["stainless-steel", "insulated", "eco-friendly"])
+        },
+        {
+          name: "Gift Hamper for Him",
+          namebn: "তার জন্য গিফট হ্যাম্পার",
+          description: "Premium gift hamper with mug, t-shirt and accessories",
+          descriptionbn: "মগ, টি-শার্ট এবং আনুষাঙ্গিক সহ প্রিমিয়াম গিফট হ্যাম্পার",
+          price: 120000,
+          category: "gift-him",
+          categorybn: "তার জন্য গিফট",
+          imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500",
+          stock: 30,
+          isActive: true,
+          isFeatured: true,
+          tags: JSON.stringify(["gift", "hamper", "premium"])
+        },
+        {
+          name: "Gift Hamper for Her",
+          namebn: "তার জন্য গিফট হ্যাম্পার",
+          description: "Elegant gift hamper with beautiful accessories",
+          descriptionbn: "সুন্দর আনুষাঙ্গিক সহ মার্জিত গিফট হ্যাম্পার",
+          price: 150000,
+          category: "gift-her",
+          categorybn: "তার জন্য গিফট",
+          imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500",
+          stock: 25,
+          isActive: true,
+          isFeatured: true,
+          tags: JSON.stringify(["gift", "elegant", "accessories"])
+        },
+        {
+          name: "Baby Gift Set",
+          namebn: "শিশুর গিফট সেট",
+          description: "Adorable gift set for babies with soft toys",
+          descriptionbn: "নরম খেলনা সহ শিশুদের জন্য আদরণীয় গিফট সেট",
+          price: 70000,
+          category: "gift-babies",
+          categorybn: "শিশুদের জন্য",
+          imageUrl: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=500",
+          stock: 40,
+          isActive: true,
+          isFeatured: false,
+          tags: JSON.stringify(["baby", "soft", "cute"])
+        },
+        {
+          name: "Couple Set",
+          namebn: "কাপল সেট",
+          description: "Matching mugs and t-shirts for couples",
+          descriptionbn: "কাপলদের জন্য ম্যাচিং মগ এবং টি-শার্ট",
+          price: 110000,
+          category: "couple",
+          categorybn: "কাপলের জন্য",
+          imageUrl: "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500",
+          stock: 35,
+          isActive: true,
+          isFeatured: true,
+          tags: JSON.stringify(["couple", "matching", "romantic"])
+        },
+        {
+          name: "Luxury Gift Hamper",
+          namebn: "লাক্সারি গিফট হ্যাম্পার",
+          description: "Premium luxury hamper with exclusive items",
+          descriptionbn: "এক্সক্লুসিভ আইটেম সহ প্রিমিয়াম লাক্সারি হ্যাম্পার",
+          price: 250000,
+          category: "hampers",
+          categorybn: "প্রিমিয়াম হ্যাম্পার",
+          imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500",
+          stock: 15,
+          isActive: true,
+          isFeatured: true,
+          tags: JSON.stringify(["luxury", "premium", "exclusive"])
+        }
+      ];
+
+      for (const product of sampleProducts) {
+        await db.insert(products).values(product);
+      }
+
+      console.log("✅ Sample products initialized successfully!");
+    }
+  } catch (error) {
+    console.error("❌ Error initializing sample data:", error);
+  }
+}
+
+// Initialize on startup
+initializeSampleData();
+
+export const storage = new DatabaseStorage();
