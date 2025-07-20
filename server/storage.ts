@@ -1,4 +1,3 @@
-
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { products, orders, promo_codes } from "@shared/schema";
@@ -6,12 +5,24 @@ import type { InsertProduct, Product, InsertOrder, Order, InsertPromoCode, Promo
 import { eq, desc, like, and, sql } from "drizzle-orm";
 
 // Updated Supabase connection
-const DATABASE_URL = "postgresql://postgres.wifsqonbnfmwtqvupqbk:Amits@12345@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres";
+const DATABASE_URL = process.env.DATABASE_URL || "postgresql://postgres.wifsqonbnfmwtqvupqbk:AZim345670@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres";
 
 const client = postgres(DATABASE_URL, {
   ssl: 'require',
   max: 20,
 });
+
+// Test connection
+export async function testConnection() {
+  try {
+    const result = await client`SELECT COUNT(*) FROM products`;
+    console.log('✅ Database connected! Found', result[0].count, 'products');
+    return true;
+  } catch (error) {
+    console.error('❌ Database connection failed:', error);
+    return false;
+  }
+}
 
 export const db = drizzle(client);
 
@@ -121,3 +132,79 @@ class Storage {
 }
 
 export const storage = new Storage();
+
+export async function getProducts(options: {
+  category?: string;
+  featured?: boolean;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<Product[]> {
+  try {
+    let query = client`SELECT * FROM products WHERE is_active = true`;
+
+    if (options.category) {
+      query = client`SELECT * FROM products WHERE is_active = true AND category = ${options.category}`;
+    }
+
+    if (options.featured !== undefined) {
+      if (options.category) {
+        query = client`SELECT * FROM products WHERE is_active = true AND category = ${options.category} AND is_featured = ${options.featured}`;
+      } else {
+        query = client`SELECT * FROM products WHERE is_active = true AND is_featured = ${options.featured}`;
+      }
+    }
+
+    if (options.limit) {
+      query = client`SELECT * FROM products WHERE is_active = true ORDER BY created_at DESC LIMIT ${options.limit}`;
+    } else {
+      query = client`SELECT * FROM products WHERE is_active = true ORDER BY created_at DESC`;
+    }
+
+    const data = await query;
+    return data as Product[];
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    return [];
+  }
+}
+
+export async function createOrder(orderData: any): Promise<{ success: boolean; orderId?: string; error?: string }> {
+  try {
+    const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    const [order] = await client`
+      INSERT INTO orders (
+        id, order_id, customer_name, customer_phone, customer_email, customer_address,
+        delivery_location, payment_method, special_instructions, promo_code, items,
+        subtotal, delivery_fee, discount_amount, total_amount, final_amount, status
+      ) VALUES (
+        ${orderId}, ${orderId}, ${orderData.customerName}, ${orderData.customerPhone}, ${orderData.customerEmail || null},
+        ${orderData.customerAddress}, ${orderData.deliveryLocation || null}, ${orderData.paymentMethod || 'cash_on_delivery'},
+        ${orderData.specialInstructions || null}, ${orderData.promoCode || null}, ${JSON.stringify(orderData.items)},
+        ${orderData.subtotal}, ${orderData.deliveryFee}, ${orderData.discountAmount || 0}, 
+        ${orderData.totalAmount}, ${orderData.finalAmount}, 'pending'
+      ) RETURNING *
+    `;
+
+    return { success: true, orderId: order.order_id };
+  } catch (error) {
+    console.error('Error creating order:', error);
+    return { success: false, error: 'Failed to create order' };
+  }
+}
+
+export async function getPromoCode(code: string): Promise<PromoCode | null> {
+  try {
+    const [data] = await client`
+      SELECT * FROM promo_codes 
+      WHERE code = ${code} AND is_active = true 
+      AND (expires_at IS NULL OR expires_at > NOW())
+      LIMIT 1
+    `;
+
+    return data ? (data as PromoCode) : null;
+  } catch (error) {
+    console.error('Error fetching promo code:', error);
+    return null;
+  }
+}
