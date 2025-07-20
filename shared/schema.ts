@@ -29,10 +29,10 @@ export const orders = pgTable("orders", {
   customerAddress: text("customer_address").notNull(),
   customerEmail: text("customer_email"),
   deliveryLocation: text("delivery_location"),
-  paymentMethod: text("payment_method"),
+  paymentMethod: text("payment_method").default("cash_on_delivery"),
   specialInstructions: text("special_instructions"),
   promoCode: text("promo_code"),
-  items: jsonb("items"), // Add items field
+  items: jsonb("items").notNull(), // Make items required
   totalAmount: integer("total_amount").notNull(),
   discountAmount: integer("discount_amount").default(0),
   deliveryFee: integer("delivery_fee").default(0),
@@ -69,6 +69,14 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,
   updatedAt: true
+}).extend({
+  items: z.array(z.any()).default([]),
+  totalAmount: z.number().int().min(0),
+  discountAmount: z.number().int().min(0).default(0),
+  deliveryFee: z.number().int().min(0).default(0),
+  finalAmount: z.number().int().min(0),
+  paymentMethod: z.string().default("cash_on_delivery"),
+  status: z.string().default("pending")
 });
 
 export const insertPromoCodeSchema = createInsertSchema(promoCodes).omit({

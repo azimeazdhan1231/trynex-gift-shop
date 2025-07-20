@@ -115,40 +115,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/orders", async (req, res) => {
     try {
+      console.log("Received order request:", req.body);
+
       // Generate unique order ID with timestamp
       const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
-      const orderId = `TRY-${today}-${timestamp}`;
+      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const orderId = `TRY-${today}-${timestamp}-${random}`;
+
+      // Ensure items is an array and calculate amounts properly
+      const items = Array.isArray(req.body.items) ? req.body.items : [];
+      const subtotal = req.body.subtotal || req.body.totalAmount || 0;
+      const deliveryFee = req.body.deliveryFee || 0;
+      const discountAmount = req.body.discountAmount || 0;
+      const finalAmount = req.body.total || (subtotal + deliveryFee - discountAmount);
 
       const orderData = {
         orderId,
         customerName: req.body.customerName || "",
         customerPhone: req.body.customerPhone || "",
         customerAddress: req.body.customerAddress || "",
-        customerEmail: req.body.customerEmail || "",
-        deliveryLocation: req.body.deliveryLocation || "",
-        paymentMethod: req.body.paymentMethod || "",
-        specialInstructions: req.body.specialInstructions || "",
-        promoCode: req.body.promoCode || "",
-        items: req.body.items || [], // Include cart items
-        totalAmount: req.body.total || req.body.subtotal || 0,
-        discountAmount: req.body.discountAmount || 0,
-        deliveryFee: req.body.deliveryFee || 0,
-        finalAmount: req.body.total || (req.body.subtotal + req.body.deliveryFee) || 0,
+        customerEmail: req.body.customerEmail || null,
+        deliveryLocation: req.body.deliveryLocation || req.body.customerAddress || "",
+        paymentMethod: req.body.paymentMethod || "cash_on_delivery",
+        specialInstructions: req.body.specialInstructions || null,
+        promoCode: req.body.promoCode || null,
+        items: items,
+        totalAmount: Math.round(subtotal),
+        discountAmount: Math.round(discountAmount),
+        deliveryFee: Math.round(deliveryFee),
+        finalAmount: Math.round(finalAmount),
         status: "pending"
       };
 
-      console.log("Order data being processed:", orderData);
+      console.log("Processed order data:", orderData);
       
+      // Validate the order data
       const validatedOrder = insertOrderSchema.parse(orderData);
+      console.log("Validated order data:", validatedOrder);
+      
+      // Create the order
       const order = await storage.createOrder(validatedOrder);
-      res.json({ ...order, orderId });
+      console.log("Order created successfully:", order);
+      
+      res.json({ 
+        success: true,
+        order: order,
+        orderId: orderId,
+        message: "Order placed successfully"
+      });
     } catch (error) {
       console.error("Order creation error:", error);
+      console.error("Error stack:", error.stack);
+      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid order data", details: error.errors });
+        console.error("Validation errors:", error.errors);
+        return res.status(400).json({ 
+          error: "Invalid order data", 
+          details: error.errors,
+          received: req.body
+        });
       }
-      res.status(500).json({ error: "Failed to create order" });
+      
+      res.status(500).json({ 
+        error: "Failed to create order",
+        message: error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   });
 
