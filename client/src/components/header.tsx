@@ -9,7 +9,7 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [location] = useLocation();
-  const { toggleCart, getTotalItems } = useCartStore();
+  const { getItemCount, toggleCart } = useCartStore();
 
   const navigation = [
     { name: "হোম", nameEn: "Home", href: "/" },
@@ -96,9 +96,9 @@ export default function Header() {
                 className="relative p-2 text-gray-700 hover:text-red-600 transition-colors"
               >
                 <ShoppingCart className="h-5 w-5" />
-                {getTotalItems() > 0 && (
+                {getItemCount() > 0 && (
                   <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                    {getTotalItems()}
+                    {getItemCount()}
                   </span>
                 )}
               </Button>

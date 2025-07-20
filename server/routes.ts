@@ -139,8 +139,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orderData = req.body;
       console.log('Creating order with data:', orderData);
 
-      // Generate order ID
-      const orderId = `TG${Date.now()}`;
+      // Generate unique order ID
+      const timestamp = Date.now();
+      const randomSuffix = Math.random().toString(36).substr(2, 6).toUpperCase();
+      const orderId = `TG-${timestamp}-${randomSuffix}`;
 
       // Validate required fields
       if (!orderData.customerName || !orderData.customerPhone || !orderData.customerAddress) {
@@ -157,29 +159,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Store order in database
-      const result = await sql`
-        INSERT INTO orders (
-          id, customer_name, customer_phone, customer_address, 
-          customer_email, delivery_location, payment_method, 
-          special_instructions, promo_code, items, subtotal, 
-          total_amount, discount_amount, delivery_fee, final_amount, 
-          status, created_at
-        ) VALUES (
-          ${orderId}, ${orderData.customerName}, ${orderData.customerPhone}, 
-          ${orderData.customerAddress}, ${orderData.customerEmail || null}, 
-          ${orderData.deliveryLocation || null}, ${orderData.paymentMethod || 'cash_on_delivery'}, 
-          ${orderData.specialInstructions || null}, ${orderData.promoCode || null}, 
-          ${JSON.stringify(orderData.items)}, ${orderData.subtotal || 0}, 
-          ${orderData.totalAmount || 0}, ${orderData.discountAmount || 0}, 
-          ${orderData.deliveryFee || 6000}, ${orderData.finalAmount || 0}, 
-          'pending', NOW()
-        )
-        RETURNING *
-      `;
+      // Create order using storage function
+      const order = await storage.createOrder({
+        id: orderId,
+        orderId: orderId,
+        customerName: orderData.customerName,
+        customerPhone: orderData.customerPhone,
+        customerAddress: orderData.customerAddress,
+        customerEmail: orderData.customerEmail || null,
+        deliveryLocation: orderData.deliveryLocation || null,
+        paymentMethod: orderData.paymentMethod || 'cash_on_delivery',
+        specialInstructions: orderData.specialInstructions || null,
+        promoCode: orderData.promoCode || null,
+        items: orderData.items,
+        subtotal: orderData.subtotal || 0,
+        totalAmount: orderData.totalAmount || 0,
+        discountAmount: orderData.discountAmount || 0,
+        deliveryFee: orderData.deliveryFee || 6000,
+        finalAmount: orderData.finalAmount || 0,
+        status: 'pending'
+      });
 
-      console.log('Order created successfully:', result[0]);
-      res.json({ success: true, orderId, order: result[0] });
+      console.log('Order created successfully:', order);
+      res.json({ success: true, orderId, order });
     } catch (error) {
       console.error('Error creating order:', error);
       res.status(500).json({ success: false, error: error.message });

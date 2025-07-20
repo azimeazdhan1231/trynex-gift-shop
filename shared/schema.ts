@@ -71,6 +71,19 @@ export const selectOrderSchema = createSelectSchema(orders);
 export const insertPromoCodeSchema = createInsertSchema(promoCodes);
 export const selectPromoCodeSchema = createSelectSchema(promoCodes);
 
+// Admin users table
+export const adminUsers = pgTable("admin_users", {
+  id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  email: text("email"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+export const insertAdminUserSchema = createInsertSchema(adminUsers);
+export const selectAdminUserSchema = createSelectSchema(adminUsers);
+
 // Types
 export type Product = z.infer<typeof selectProductSchema>;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
@@ -78,3 +91,5 @@ export type Order = z.infer<typeof selectOrderSchema> & { total: number };
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type PromoCode = z.infer<typeof selectPromoCodeSchema>;
 export type InsertPromoCode = z.infer<typeof insertPromoCodeSchema>;
+export type AdminUser = z.infer<typeof selectAdminUserSchema>;
+export type InsertAdminUser = z.infer<typeof insertAdminUserSchema>;
