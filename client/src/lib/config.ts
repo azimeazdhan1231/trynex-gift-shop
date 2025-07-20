@@ -1,14 +1,14 @@
 
-const API_BASE_URL = "https://trynex-backend-32fp.onrender.com";
+// API Configuration - Use local backend only
+const API_BASE_URL = "http://localhost:3001";
 
 export function getApiUrl(path: string): string {
-  // Remove leading slash if present to avoid double slashes
-  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
-  return `${API_BASE_URL}/${cleanPath}`;
+  const url = `${API_BASE_URL}${path}`;
+  console.log(`🎯 Fetching from: ${url}`);
+  return url;
 }
 
 export const config = {
   apiBaseUrl: API_BASE_URL,
-  isDevelopment: import.meta.env.DEV,
-  isProduction: import.meta.env.PROD,
+  isDevelopment: true
 };
