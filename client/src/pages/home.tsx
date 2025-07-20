@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Star, ShoppingCart, Heart, Search, ArrowRight, Gift, Truck, Shield, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useCartStore } from "@/lib/cart-store";
 import { getApiUrl } from "@/lib/config";
@@ -13,12 +12,24 @@ import type { Product } from "@shared/schema";
 import type { Category } from "@/types";
 
 export default function Home() {
-  const { data: featuredProducts } = useQuery<Product[]>({
+  // Fetch featured products
+  const { data: featuredProducts, isLoading: featuredLoading, error: featuredError } = useQuery<Product[]>({
     queryKey: ["products", "featured"],
     queryFn: async () => {
-      const response = await fetch(getApiUrl("/api/products?featured=true"));
-      if (!response.ok) throw new Error('Failed to fetch featured products');
-      return response.json();
+      try {
+        console.log('Fetching featured products from:', getApiUrl('/api/products?featured=true'));
+        const response = await fetch(getApiUrl('/api/products?featured=true'));
+        if (!response.ok) {
+          console.error('Failed to fetch featured products:', response.status, response.statusText);
+          throw new Error('Failed to fetch featured products');
+        }
+        const data = await response.json();
+        console.log('Featured products fetched:', data);
+        return data;
+      } catch (error) {
+        console.error('Error fetching featured products:', error);
+        throw error;
+      }
     }
   });
 
@@ -28,6 +39,27 @@ export default function Home() {
       const response = await fetch(getApiUrl('/api/products?limit=8'));
       if (!response.ok) throw new Error('Failed to fetch latest products');
       return response.json();
+    }
+  });
+
+  // Fetch all products for categories
+  const { data: allProducts, isLoading: allProductsLoading, error: allProductsError } = useQuery<Product[]>({
+    queryKey: ["products"],
+    queryFn: async () => {
+      try {
+        console.log('Fetching all products from:', getApiUrl('/api/products'));
+        const response = await fetch(getApiUrl('/api/products'));
+        if (!response.ok) {
+          console.error('Failed to fetch all products:', response.status, response.statusText);
+          throw new Error('Failed to fetch products');
+        }
+        const data = await response.json();
+        console.log('All products fetched:', data);
+        return data;
+      } catch (error) {
+        console.error('Error fetching all products:', error);
+        throw error;
+      }
     }
   });
 
