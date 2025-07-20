@@ -3,7 +3,6 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Drop existing tables if they exist (be careful in production!)
-DROP TABLE IF EXISTS order_items CASCADE;
 DROP TABLE IF EXISTS orders CASCADE;
 DROP TABLE IF EXISTS products CASCADE;
 DROP TABLE IF EXISTS promo_codes CASCADE;
@@ -29,10 +28,10 @@ CREATE TABLE products (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Create orders table with proper UUID handling
+-- Create orders table with proper structure
 CREATE TABLE orders (
-  id TEXT PRIMARY KEY DEFAULT ('TRY-' || to_char(NOW(), 'YYYYMMDD') || '-' || extract(epoch from NOW())::text || '-' || upper(substring(md5(random()::text) from 1 for 6))),
-  order_id TEXT NOT NULL UNIQUE DEFAULT ('TRY-' || to_char(NOW(), 'YYYYMMDD') || '-' || extract(epoch from NOW())::text || '-' || upper(substring(md5(random()::text) from 1 for 6))),
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL UNIQUE,
   customer_name VARCHAR(255) NOT NULL,
   customer_phone VARCHAR(20) NOT NULL,
   customer_address TEXT NOT NULL,
@@ -42,10 +41,10 @@ CREATE TABLE orders (
   special_instructions TEXT,
   promo_code VARCHAR(50),
   items JSONB NOT NULL DEFAULT '[]',
-  total_amount INTEGER NOT NULL, -- in paisa
+  total_amount INTEGER NOT NULL DEFAULT 0,
   discount_amount INTEGER DEFAULT 0,
   delivery_fee INTEGER DEFAULT 0,
-  final_amount INTEGER NOT NULL,
+  final_amount INTEGER NOT NULL DEFAULT 0,
   status VARCHAR(50) DEFAULT 'pending',
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
@@ -95,6 +94,7 @@ CREATE INDEX idx_products_active ON products(is_active);
 CREATE INDEX idx_orders_status ON orders(status);
 CREATE INDEX idx_orders_customer_phone ON orders(customer_phone);
 CREATE INDEX idx_orders_created_at ON orders(created_at);
+CREATE INDEX idx_orders_order_id ON orders(order_id);
 CREATE INDEX idx_promo_codes_code ON promo_codes(code);
 CREATE INDEX idx_promo_codes_active ON promo_codes(is_active);
 
