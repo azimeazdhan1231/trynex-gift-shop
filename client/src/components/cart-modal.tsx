@@ -90,7 +90,7 @@ const bangladeshLocations = {
 
 export default function CartModal() {
   const {
-    items,
+    items: cartItems,
     isOpen,
     closeCart,
     updateQuantity,
@@ -191,24 +191,24 @@ export default function CartModal() {
 
     try {
       const orderData = {
-        items: items.map(item => ({
-          id: item.id,
-          name: item.name,
-          namebn: item.namebn,
-          price: item.price * 100, // Convert to paisa
-          quantity: item.quantity,
-          category: item.category,
-          image: item.image
-        })),
         customerName: orderForm.customerName,
         customerPhone: orderForm.customerPhone,
         customerAddress: `${orderForm.customerAddress}, ${selectedThana}, ${bangladeshLocations[selectedDistrict].name}`,
-        customerEmail: orderForm.customerEmail || orderForm.customerName + "@example.com",
+        customerEmail: orderForm.customerName + "@example.com",
         deliveryLocation: `${selectedThana}, ${bangladeshLocations[selectedDistrict].name}`,
         paymentMethod: orderForm.paymentMethod,
         specialInstructions: orderForm.specialInstructions,
         promoCode: "",
-        totalAmount: Math.round(subtotal * 100), // Convert to paisa
+        items: cartItems.map(item => ({
+          id: item.id,
+          name: item.name,
+          namebn: item.namebn,
+          price: item.price,
+          quantity: item.quantity,
+          category: item.category,
+          image: item.image
+        })),
+        totalAmount: Math.round(total * 100), // Convert to paisa
         discountAmount: 0,
         deliveryFee: Math.round(deliveryFee * 100), // Convert to paisa
         finalAmount: Math.round(total * 100) // Convert to paisa
@@ -263,7 +263,7 @@ export default function CartModal() {
   };
 
   const proceedToForm = () => {
-    if (items.length === 0) {
+    if (cartItems.length === 0) {
       toast({
         title: "কার্ট খালি",
         description: "অনুগ্রহ করে প্রোডাক্ট যোগ করুন",
@@ -287,12 +287,12 @@ export default function CartModal() {
 
         {currentStep === "cart" && (
           <div className="space-y-4">
-            {items.length === 0 ? (
+            {cartItems.length === 0 ? (
               <p className="text-center py-8 text-gray-500">আপনার কার্ট খালি</p>
             ) : (
               <>
                 <div className="space-y-3">
-                  {items.map((item) => (
+                  {cartItems.map((item) => (
                     <div key={item.id} className="flex items-center gap-3 p-3 border rounded-lg">
                       <img 
                         src={item.image} 
@@ -357,7 +357,7 @@ export default function CartModal() {
                 <Button 
                   onClick={proceedToForm} 
                   className="w-full"
-                  disabled={items.length === 0}
+                  disabled={cartItems.length === 0}
                 >
                   অর্ডার করুন / Proceed to Order
                 </Button>
