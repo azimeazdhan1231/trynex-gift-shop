@@ -1,3 +1,4 @@
+
 export interface CartItem {
   id: number;
   name: string;
@@ -5,40 +6,51 @@ export interface CartItem {
   price: number;
   imageUrl: string;
   quantity: number;
-  variant?: {
-    size?: string;
-    color?: string;
-  };
 }
 
-export interface DeliveryZone {
-  id: string;
+export interface Product {
+  id: number;
   name: string;
   namebn: string;
-  fee: number;
+  description: string;
+  descriptionbn: string;
+  price: number;
+  category: string;
+  categorybn: string;
+  imageUrl: string;
+  stock: number;
+  isActive: boolean;
+  isFeatured: boolean;
+  tags: string[];
+  variants: any;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface PaymentMethod {
-  id: string;
-  name: string;
-  namebn: string;
-  icon: string;
+export interface Order {
+  id: number;
+  orderId: string;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string;
+  items: string;
+  subtotal: number;
+  deliveryFee: number;
+  total: number;
+  paymentMethod: string;
+  deliveryLocation: string;
+  specialInstructions: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface OrderFormData {
   customerName: string;
   customerPhone: string;
   customerAddress: string;
-  deliveryLocation: string;
   paymentMethod: string;
   specialInstructions?: string;
-  promoCode?: string;
-}
-
-export interface FlashSale {
-  discount: number;
-  endsAt: Date;
-  minOrder: number;
 }
 
 export interface Category {
@@ -46,5 +58,4 @@ export interface Category {
   name: string;
   namebn: string;
   icon: string;
-  minPrice: number;
 }

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getApiUrl } from "@/lib/config";
-import type { Order } from "@shared/schema";
+import type { Order } from "@/types";
 
 export default function TrackOrder() {
   const [orderId, setOrderId] = useState("");
@@ -17,7 +17,7 @@ export default function TrackOrder() {
     queryKey: ["order", searchOrderId],
     queryFn: async () => {
       if (!searchOrderId) return null;
-      const response = await fetch(getApiUrl(`/api/orders/track/${searchOrderId}`));
+      const response = await fetch(getApiUrl(`/api/orders/${searchOrderId}`));
       if (!response.ok) {
         throw new Error('Order not found');
       }
@@ -48,42 +48,24 @@ export default function TrackOrder() {
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "অর্ডার প্রাপ্ত হয়েছে";
-      case "processing":
-        return "প্যাকেজিং হচ্ছে";
-      case "shipped":
-        return "পাঠানো হয়েছে";
-      case "delivered":
-        return "পৌঁছে গেছে";
-      default:
-        return "অজানা অবস্থা";
-    }
-  };
-
-  const formatPrice = (price: number) => `৳${price / 100}`;
-  const formatDate = (date: string | Date) => new Date(date).toLocaleDateString('bn-BD');
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Order Tracking</h1>
-          <p className="text-gray-600 font-bengali">আপনার অর্ডার ট্র্যাক করুন</p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Track Your Order</h1>
+          <p className="text-gray-600">Enter your order ID to track your package</p>
         </div>
 
         {/* Search Form */}
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle>Enter Your Order ID</CardTitle>
-            <CardDescription>অর্ডার আইডি দিয়ে আপনার অর্ডার খুঁজুন</CardDescription>
+            <CardTitle>Enter Order ID</CardTitle>
+            <CardDescription>Enter the order ID you received after placing your order</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSearch} className="flex gap-2">
               <Input
-                placeholder="TRY-1234567890-ABCDEF"
+                placeholder="TXR-1234567890-ABC123"
                 value={orderId}
                 onChange={(e) => setOrderId(e.target.value)}
                 className="flex-1"
@@ -123,47 +105,12 @@ export default function TrackOrder() {
         {/* Order Details */}
         {order && (
           <div className="space-y-6">
-            {/* Order Status */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   {getStatusIcon(order.status)}
-                  Order Status
+                  Order Status: {order.status.toUpperCase()}
                 </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Current Status:</span>
-                    <Badge variant={order.status === "delivered" ? "default" : "secondary"}>
-                      {getStatusText(order.status)}
-                    </Badge>
-                  </div>
-
-                  {/* Status Timeline */}
-                  <div className="space-y-3">
-                    {["pending", "processing", "shipped", "delivered"].map((status, index) => {
-                      const isActive = ["pending", "processing", "shipped", "delivered"].indexOf(order.status) >= index;
-                      const isCurrent = order.status === status;
-
-                      return (
-                        <div key={status} className={`flex items-center gap-3 ${isActive ? 'text-green-600' : 'text-gray-400'}`}>
-                          <div className={`w-4 h-4 rounded-full border-2 ${isActive ? 'bg-green-600 border-green-600' : 'border-gray-300'} ${isCurrent ? 'animate-pulse' : ''}`}></div>
-                          <span className={`font-medium ${isCurrent ? 'text-blue-600' : ''}`}>
-                            {getStatusText(status)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Order Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Order Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -172,23 +119,15 @@ export default function TrackOrder() {
                     <p className="font-mono font-medium">{order.orderId}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Order Date</p>
-                    <p className="font-medium">{formatDate(order.createdAt!)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Payment Method</p>
-                    <p className="font-medium capitalize">{order.paymentMethod}</p>
-                  </div>
-                  <div>
                     <p className="text-sm text-gray-600">Total Amount</p>
-                    <p className="font-medium text-red-600">{formatPrice(order.total)}</p>
+                    <p className="font-medium text-red-600">৳{order.total}</p>
                   </div>
                 </div>
 
                 <Separator />
 
                 <div>
-                  <p className="text-sm text-gray-600 mb-2">Delivery Address</p>
+                  <p className="text-sm text-gray-600 mb-2">Delivery Information</p>
                   <p className="font-medium">{order.customerName}</p>
                   <p className="text-sm text-gray-600">{order.customerPhone}</p>
                   <p className="text-sm">{order.customerAddress}</p>
@@ -203,36 +142,6 @@ export default function TrackOrder() {
                     </div>
                   </>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* Order Items */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Order Items</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {order.items && Array.isArray(order.items) && order.items.map((item: any, index: number) => (
-                    <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
-                      {item.image && (
-                        <img 
-                          src={item.image} 
-                          alt={item.name} 
-                          className="w-12 h-12 object-cover rounded"
-                        />
-                      )}
-                      <div className="flex-1">
-                        <h4 className="font-medium">{item.name}</h4>
-                        <p className="text-sm text-gray-600">{item.namebn}</p>
-                        <p className="text-sm text-red-600">৳{item.price} × {item.quantity}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">৳{item.price * item.quantity}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </CardContent>
             </Card>
 
