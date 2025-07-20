@@ -1,4 +1,3 @@
-
 import { getApiUrl } from "@/lib/config";
 import { useState, useEffect } from "react";
 import { useCartStore } from "@/lib/cart-store";
@@ -476,7 +475,7 @@ export default function CartModal() {
                   </Button>
                 ))}
               </div>
-              
+
               {/* Payment Instructions */}
               <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="text-sm space-y-2">

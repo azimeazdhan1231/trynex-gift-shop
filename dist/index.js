@@ -44,9 +44,9 @@ var orders = pgTable("orders", {
   deliveryFee: integer("delivery_fee").notNull(),
   total: integer("total").notNull(),
   paymentMethod: text("payment_method").notNull(),
-  // bkash, nagad, rocket
+  // bkash, nagad, upay
   deliveryLocation: text("delivery_location").notNull(),
-  // dhaka, outside
+  // district, thana info
   specialInstructions: text("special_instructions"),
   status: text("status").default("pending"),
   // pending, processing, shipped, delivered
@@ -290,13 +290,25 @@ async function registerRoutes(app2) {
       const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10).replace(/-/g, "");
       const orderCount = (await storage.getOrders()).length + 1;
       const orderId = `TXR-${today}-${String(orderCount).padStart(3, "0")}`;
-      const orderData = insertOrderSchema.parse({
-        ...req.body,
-        orderId
-      });
-      const order = await storage.createOrder(orderData);
-      res.json(order);
+      const orderData = {
+        orderId,
+        customerName: req.body.customer.name,
+        customerPhone: req.body.customer.phone,
+        customerAddress: req.body.customer.address,
+        items: req.body.items,
+        subtotal: req.body.subtotal,
+        deliveryFee: req.body.deliveryFee,
+        total: req.body.total,
+        paymentMethod: req.body.paymentMethod,
+        deliveryLocation: req.body.deliveryLocation,
+        specialInstructions: req.body.specialInstructions || "",
+        status: "pending"
+      };
+      const validatedOrder = insertOrderSchema.parse(orderData);
+      const order = await storage.createOrder(validatedOrder);
+      res.json({ ...order, orderId });
     } catch (error) {
+      console.error("Order creation error:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid order data", details: error.errors });
       }
@@ -337,6 +349,26 @@ async function registerRoutes(app2) {
       res.json(promoCode);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch promo code" });
+    }
+  });
+  app2.post("/api/promo-codes/validate", async (req, res) => {
+    try {
+      const { code } = req.body;
+      const promoCode = await storage.getPromoCode(code);
+      if (!promoCode) {
+        return res.status(404).json({ error: "Invalid promo code" });
+      }
+      const now = /* @__PURE__ */ new Date();
+      if (!promoCode.isActive || promoCode.expiresAt && new Date(promoCode.expiresAt) < now) {
+        return res.status(400).json({ error: "Promo code has expired" });
+      }
+      res.json({
+        code: promoCode.code,
+        discount: promoCode.discountPercentage,
+        message: "Promo code applied successfully"
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to validate promo code" });
     }
   });
   app2.post("/api/promo-codes", async (req, res) => {
@@ -515,6 +547,27 @@ function serveStatic(app2) {
 
 // server/index.ts
 var app = express2();
+app.use((req, res, next) => {
+  const allowedOrigins = [
+    "https://trynex-gift-shop.netlify.app",
+    "http://localhost:5000",
+    "https://replit.dev",
+    "https://*.replit.dev",
+    process.env.FRONTEND_URL
+  ].filter(Boolean);
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+    res.header("Access-Control-Allow-Origin", origin || "*");
+  }
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
+  if (req.method === "OPTIONS") {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
 app.use(express2.json());
 app.use(express2.urlencoded({ extended: false }));
 app.use((req, res, next) => {
@@ -542,7 +595,24 @@ app.use((req, res, next) => {
   next();
 });
 (async () => {
+  const port = parseInt(process.env.PORT || "3001", 10);
   const server = await registerRoutes(app);
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.log(`Port ${port} is busy, trying ${port + 1}...`);
+      server.listen(port + 1, "0.0.0.0", () => {
+        console.log(`\u{1F680} Server running on http://0.0.0.0:${port + 1}`);
+        console.log(`\u{1F4CA} Database connected successfully`);
+        console.log(`\u{1F310} API endpoints available at http://0.0.0.0:${port + 1}/api`);
+      });
+    } else {
+      console.error("Server error:", err);
+    }
+  });
+  server.listen(port, "0.0.0.0", () => {
+    log(`Server running on http://0.0.0.0:${port}`);
+    log(`API available at http://0.0.0.0:${port}/api`);
+  });
   app.use((err, _req, res, _next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -554,12 +624,4 @@ app.use((req, res, next) => {
   } else {
     serveStatic(app);
   }
-  const port = parseInt(process.env.PORT || "5000", 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true
-  }, () => {
-    log(`serving on port ${port}`);
-  });
 })();
