@@ -1,3 +1,4 @@
+
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
@@ -8,7 +9,9 @@ if (!DATABASE_URL) {
 }
 
 // Create the connection
-const client = postgres(DATABASE_URL);
+const client = postgres(DATABASE_URL, {
+  ssl: { rejectUnauthorized: false }
+});
 export const db = drizzle(client);
 
 // Supabase configuration  
@@ -19,14 +22,13 @@ export const supabaseConfig = {
 
 // Helper function to initialize sample data
 export async function initializeSampleData() {
-  // This would be called on first app load to populate sample products
   const sampleProducts = [
     {
       name: "Classic Ceramic Mug",
       namebn: "ক্লাসিক সিরামিক মগ",
       description: "Perfect for your morning coffee or tea",
       descriptionbn: "আপনার সকালের কফি বা চায়ের জন্য আদর্শ",
-      price: 55000, // in paisa (550 BDT)
+      price: 55000,
       category: "mugs",
       categorybn: "মগ",
       imageUrl: "https://images.unsplash.com/photo-1514228742587-6b1558fcf93a?auto=format&fit=crop&w=500&q=80",
@@ -41,7 +43,7 @@ export async function initializeSampleData() {
       namebn: "প্রিমিয়াম কটন টি-শার্ট",
       description: "Comfortable and stylish t-shirt for everyday wear",
       descriptionbn: "দৈনন্দিন পরিধানের জন্য আরামদায়ক এবং স্টাইলিশ টি-শার্ট",
-      price: 55000, // 550 BDT
+      price: 55000,
       category: "tshirts",
       categorybn: "টি-শার্ট",
       imageUrl: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=500&q=80",
@@ -56,7 +58,7 @@ export async function initializeSampleData() {
       namebn: "জন্মদিন উৎসব প্যাকেজ",
       description: "Complete birthday celebration set with decorations",
       descriptionbn: "সাজসজ্জা সহ সম্পূর্ণ জন্মদিন উৎসব সেট",
-      price: 160000, // 1600 BDT
+      price: 160000,
       category: "gift-packages",
       categorybn: "গিফট প্যাকেজ",
       imageUrl: "https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&w=500&q=80",
