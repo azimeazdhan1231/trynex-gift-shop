@@ -1,33 +1,40 @@
+
 import { QueryClient } from "@tanstack/react-query";
 import { getApiUrl } from "./config";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: 1,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 2,
       refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: 1,
     },
   },
 });
 
-// Helper for API requests
-export async function apiRequest(method: string, url: string, data?: any) {
+export async function apiRequest(method: string, path: string, body?: any) {
+  const url = getApiUrl(path);
+  
   const options: RequestInit = {
     method,
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
     },
   };
 
-  if (data) {
-    options.body = JSON.stringify(data);
+  if (body) {
+    options.body = JSON.stringify(body);
   }
 
-  const response = await fetch(getApiUrl(url), options);
-
+  const response = await fetch(url, options);
+  
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    const errorText = await response.text();
+    throw new Error(`API Error: ${response.status} - ${errorText}`);
   }
 
   return response;

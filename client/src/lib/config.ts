@@ -1,18 +1,13 @@
 
 // API Configuration
-const isDevelopment = import.meta.env.DEV;
-const API_BASE_URL = isDevelopment 
-  ? 'http://localhost:5000' 
-  : 'https://trynex-backend-32fp.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://trynex-backend-32fp.onrender.com';
 
-export const config = {
-  API_BASE_URL,
-  endpoints: {
-    products: `${API_BASE_URL}/api/products`,
-    orders: `${API_BASE_URL}/api/orders`,
-    promoCodes: `${API_BASE_URL}/api/promo-codes`,
-    categories: `${API_BASE_URL}/api/categories`,
-  }
+export function getApiUrl(path: string = ''): string {
+  return `${API_BASE_URL}${path}`;
+}
+
+export const API_CONFIG = {
+  baseUrl: API_BASE_URL,
+  timeout: 10000,
+  retries: 3
 };
-
-export default config;
