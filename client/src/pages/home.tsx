@@ -8,15 +8,9 @@ import { useCartStore } from "@/lib/cart-store";
 import { getApiUrl } from "@/lib/config";
 import CategoryGrid from "@/components/category-grid";
 import HeroSlider from "@/components/hero-slider";
+import ProductCard from "@/components/product-card";
 import type { Product } from "@shared/schema";
 import type { Category } from "@/types";
-import HeroSlider from "@/components/hero-slider";
-import ProductCard from "@/components/product-card";
-import CategoryGrid from "@/components/category-grid";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { getApiUrl } from "@/lib/config";
-import type { Product } from "@shared/schema";
 
 export default function Home() {
   const { data: featuredProducts } = useQuery<Product[]>({
