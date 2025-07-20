@@ -41,6 +41,7 @@ CREATE TABLE orders (
   special_instructions TEXT,
   promo_code VARCHAR(50),
   items JSONB NOT NULL DEFAULT '[]',
+  subtotal INTEGER NOT NULL DEFAULT 0,
   total_amount INTEGER NOT NULL DEFAULT 0,
   discount_amount INTEGER DEFAULT 0,
   delivery_fee INTEGER DEFAULT 0,
@@ -75,7 +76,10 @@ INSERT INTO products (name, name_bn, description, description_bn, price, categor
 ('Premium Cotton T-Shirt', 'প্রিমিয়াম কটন টি-শার্ট', 'Comfortable and stylish t-shirt for everyday wear', 'দৈনন্দিন পরিধানের জন্য আরামদায়ক এবং স্টাইলিশ টি-শার্ট', 55000, 'tshirts', 'টি-শার্ট', 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=500&q=80', 150, true, true, '{"cotton", "casual", "comfortable"}', '{"sizes": ["S", "M", "L", "XL"], "colors": ["white", "black", "navy", "red"]}'),
 ('Birthday Celebration Package', 'জন্মদিন উৎসব প্যাকেজ', 'Complete birthday celebration set with decorations', 'সাজসজ্জা সহ সম্পূর্ণ জন্মদিন উৎসব সেট', 160000, 'gift-packages', 'গিফট প্যাকেজ', 'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&w=500&q=80', 50, true, true, '{"birthday", "celebration", "package"}', '{"themes": ["colorful", "elegant", "kids"]}'),
 ('Personalized Water Bottle', 'ব্যক্তিগতকৃত পানির বোতল', 'Custom water bottle with your name or message', 'আপনার নাম বা বার্তা সহ কাস্টম পানির বোতল', 80000, 'bottles', 'পানির বোতল', 'https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=500&q=80', 75, true, false, '{"water", "custom", "personalized"}', '{"colors": ["blue", "green", "red", "black"], "sizes": ["500ml", "750ml", "1L"]}'),
-('Romantic Couple Gift Set', 'রোমান্টিক কাপল গিফট সেট', 'Perfect gift set for couples with matching items', 'ম্যাচিং আইটেম সহ কাপলদের জন্য নিখুঁত গিফট সেট', 120000, 'couple', 'কাপলের জন্য', 'https://images.unsplash.com/photo-1549890762-1c0bb4fd425e?auto=format&fit=crop&w=500&q=80', 30, true, true, '{"couple", "romantic", "gift"}', '{"themes": ["romantic", "cute", "elegant"]}');
+('Romantic Couple Gift Set', 'রোমান্টিক কাপল গিফট সেট', 'Perfect gift set for couples with matching items', 'ম্যাচিং আইটেম সহ কাপলদের জন্য নিখুঁত গিফট সেট', 120000, 'couple', 'কাপলের জন্য', 'https://images.unsplash.com/photo-1549890762-1c0bb4fd425e?auto=format&fit=crop&w=500&q=80', 30, true, true, '{"couple", "romantic", "gift"}', '{"themes": ["romantic", "cute", "elegant"]}'),
+('Custom Photo Frame', 'কাস্টম ফটো ফ্রেম', 'Beautiful wooden photo frame with custom engraving', 'কাস্টম খোদাই সহ সুন্দর কাঠের ফটো ফ্রেম', 95000, 'frames', 'ফ্রেম', 'https://images.unsplash.com/photo-1582045012394-78ebc24e7bca?auto=format&fit=crop&w=500&q=80', 60, true, true, '{"wood", "custom", "photo"}', '{"sizes": ["4x6", "5x7", "8x10"], "materials": ["oak", "pine", "mahogany"]}'),
+('Personalized Keychain', 'ব্যক্তিগতকৃত চাবির চেইন', 'Custom metal keychain with name or message', 'নাম বা বার্তা সহ কাস্টম মেটাল চাবির চেইন', 30000, 'keychains', 'চাবির চেইন', 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=500&q=80', 200, true, false, '{"metal", "custom", "keychain"}', '{"materials": ["stainless", "brass", "aluminum"], "shapes": ["round", "square", "heart"]}'),
+('Birthday Gift Hamper', 'জন্মদিনের গিফট হ্যাম্পার', 'Complete birthday gift collection in a beautiful box', 'সুন্দর বাক্সে সম্পূর্ণ জন্মদিনের গিফট সংগ্রহ', 180000, 'hampers', 'হ্যাম্পার', 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?auto=format&fit=crop&w=500&q=80', 25, true, true, '{"birthday", "hamper", "collection"}', '{"themes": ["elegant", "colorful", "premium"], "sizes": ["small", "medium", "large"]}');
 
 -- Insert sample promo codes
 INSERT INTO promo_codes (code, discount, min_order, is_active, expires_at) VALUES
