@@ -32,6 +32,7 @@ export const orders = pgTable("orders", {
   paymentMethod: text("payment_method"),
   specialInstructions: text("special_instructions"),
   promoCode: text("promo_code"),
+  items: jsonb("items"), // Add items field
   totalAmount: integer("total_amount").notNull(),
   discountAmount: integer("discount_amount").default(0),
   deliveryFee: integer("delivery_fee").default(0),

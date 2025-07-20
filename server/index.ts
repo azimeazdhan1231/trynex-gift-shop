@@ -1,10 +1,45 @@
 import express, { type Request, Response, NextFunction } from "express";
-import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
-import { storage } from "./storage";
 
 const app = express();
+
+// CORS configuration
+app.use((req, res, next) => {
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://trynex-gift-shop.netlify.app',
+    /\.replit\.dev$/,
+    /\.repl\.co$/
+  ];
+
+  const origin = req.headers.origin;
+
+  if (origin && allowedOrigins.some(allowed => 
+    typeof allowed === 'string' ? allowed === origin : allowed.test(origin)
+  )) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+    return;
+  }
+
+  next();
+});
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+import cors from "cors";
+import { storage } from "./storage";
+
+
 
 // Configure CORS
 app.use(cors({
@@ -22,7 +57,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use(express.json());
 app.use(express.static("dist"));
 
 (async () => {

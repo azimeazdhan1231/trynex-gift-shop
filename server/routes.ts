@@ -99,12 +99,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Order tracking endpoint
+  app.get("/api/orders/track/:orderId", async (req, res) => {
+    try {
+      const orderId = req.params.orderId;
+      const order = await storage.getOrderByOrderId(orderId);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      res.json(order);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch order" });
+    }
+  });
+
   app.post("/api/orders", async (req, res) => {
     try {
-      // Generate unique order ID
+      // Generate unique order ID with timestamp
       const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const orderCount = (await storage.getOrders()).length + 1;
-      const orderId = `TXR-${today}-${String(orderCount).padStart(3, '0')}`;
+      const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+      const orderId = `TRY-${today}-${timestamp}`;
 
       const orderData = {
         orderId,
@@ -116,6 +130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentMethod: req.body.paymentMethod || "",
         specialInstructions: req.body.specialInstructions || "",
         promoCode: req.body.promoCode || "",
+        items: req.body.items || [], // Include cart items
         totalAmount: req.body.total || req.body.subtotal || 0,
         discountAmount: req.body.discountAmount || 0,
         deliveryFee: req.body.deliveryFee || 0,
