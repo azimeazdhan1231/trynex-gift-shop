@@ -6,6 +6,25 @@ import { z } from "zod";
 import { eq, desc, like, and, sql } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint
+  app.get("/api/health", async (req, res) => {
+    try {
+      const products = await storage.getProducts();
+      res.json({ 
+        status: "healthy", 
+        database: "connected",
+        productsCount: products.length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        status: "unhealthy", 
+        database: "error",
+        error: error.message 
+      });
+    }
+  });
+
   // Products routes
   app.get("/api/products", async (req, res) => {
     try {

@@ -21,8 +21,13 @@ const db = drizzle(client);
 // Test database connection
 client`SELECT 1`.then(() => {
   console.log("✅ Database connected successfully");
+  // Test if tables exist
+  return client`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'`;
+}).then((tables) => {
+  console.log("📋 Available tables:", tables.map(t => t.table_name));
 }).catch((error) => {
   console.error("❌ Database connection failed:", error);
+  console.error("Connection string used:", connectionString.replace(/:[^:@]*@/, ':****@'));
 });
 
 export const storage = {

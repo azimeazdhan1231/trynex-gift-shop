@@ -1,15 +1,13 @@
-
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Drop existing tables if they exist (be careful in production!)
+-- Drop existing tables if they exist
 DROP TABLE IF EXISTS orders CASCADE;
-DROP TABLE IF EXISTS products CASCADE;
 DROP TABLE IF EXISTS promo_codes CASCADE;
 DROP TABLE IF EXISTS admin_users CASCADE;
 
--- Create products table
-CREATE TABLE products (
+-- Create products table (if not exists)
+CREATE TABLE IF NOT EXISTS products (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   name_bn VARCHAR(255),
@@ -28,27 +26,27 @@ CREATE TABLE products (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Create orders table with proper structure
+-- Create orders table with correct structure
 CREATE TABLE orders (
   id TEXT PRIMARY KEY,
-  order_id TEXT NOT NULL UNIQUE,
-  customer_name VARCHAR(255) NOT NULL,
-  customer_phone VARCHAR(20) NOT NULL,
-  customer_address TEXT NOT NULL,
-  customer_email VARCHAR(255),
-  delivery_location TEXT,
-  payment_method VARCHAR(100) DEFAULT 'cash_on_delivery',
-  special_instructions TEXT,
-  promo_code VARCHAR(50),
+  "orderId" TEXT NOT NULL UNIQUE,
+  "customerName" VARCHAR(255) NOT NULL,
+  "customerPhone" VARCHAR(20) NOT NULL,
+  "customerAddress" TEXT NOT NULL,
+  "customerEmail" VARCHAR(255),
+  "deliveryLocation" TEXT,
+  "paymentMethod" VARCHAR(100) DEFAULT 'cash_on_delivery',
+  "specialInstructions" TEXT,
+  "promoCode" VARCHAR(50),
   items JSONB NOT NULL DEFAULT '[]',
   subtotal INTEGER NOT NULL DEFAULT 0,
-  total_amount INTEGER NOT NULL DEFAULT 0,
-  discount_amount INTEGER DEFAULT 0,
-  delivery_fee INTEGER DEFAULT 0,
-  final_amount INTEGER NOT NULL DEFAULT 0,
+  "totalAmount" INTEGER NOT NULL DEFAULT 0,
+  "discountAmount" INTEGER DEFAULT 0,
+  "deliveryFee" INTEGER DEFAULT 0,
+  "finalAmount" INTEGER NOT NULL DEFAULT 0,
   status VARCHAR(50) DEFAULT 'pending',
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  "createdAt" TIMESTAMP DEFAULT NOW(),
+  "updatedAt" TIMESTAMP DEFAULT NOW()
 );
 
 -- Create promo_codes table
@@ -92,15 +90,12 @@ INSERT INTO admin_users (username, password) VALUES
 ('admin', '$2a$10$rZYlRQUz7ZKy.OhVOV3Lp.d7CyGhqYpY9wgCjKzBkjKa6lXZQa5YO');
 
 -- Create indexes for better performance
-CREATE INDEX idx_products_category ON products(category);
-CREATE INDEX idx_products_featured ON products(is_featured);
-CREATE INDEX idx_products_active ON products(is_active);
-CREATE INDEX idx_orders_status ON orders(status);
-CREATE INDEX idx_orders_customer_phone ON orders(customer_phone);
-CREATE INDEX idx_orders_created_at ON orders(created_at);
-CREATE INDEX idx_orders_order_id ON orders(order_id);
-CREATE INDEX idx_promo_codes_code ON promo_codes(code);
-CREATE INDEX idx_promo_codes_active ON promo_codes(is_active);
+CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
+CREATE INDEX IF NOT EXISTS idx_products_active ON products(is_active);
+CREATE INDEX IF NOT EXISTS idx_products_featured ON products(is_featured);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_customer_phone ON orders("customerPhone");
+CREATE INDEX IF NOT EXISTS idx_promo_codes_active ON promo_codes(is_active);
 
 -- Enable Row Level Security (RLS) for public access
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;

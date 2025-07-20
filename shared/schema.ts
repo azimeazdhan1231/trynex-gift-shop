@@ -23,24 +23,24 @@ export const products = pgTable("products", {
 
 export const orders = pgTable("orders", {
   id: text("id").primaryKey(),
-  orderId: text("order_id").notNull().unique(),
-  customerName: varchar("customer_name", { length: 255 }).notNull(),
-  customerPhone: varchar("customer_phone", { length: 20 }).notNull(),
-  customerAddress: text("customer_address").notNull(),
-  customerEmail: varchar("customer_email", { length: 255 }),
-  deliveryLocation: text("delivery_location"),
-  paymentMethod: varchar("payment_method", { length: 100 }).default("cash_on_delivery"),
-  specialInstructions: text("special_instructions"),
-  promoCode: varchar("promo_code", { length: 50 }),
-  items: jsonb("items").notNull().default("[]"),
-  subtotal: integer("subtotal").notNull().default(0),
-  totalAmount: integer("total_amount").notNull().default(0),
-  discountAmount: integer("discount_amount").default(0),
-  deliveryFee: integer("delivery_fee").default(0),
-  finalAmount: integer("final_amount").notNull().default(0),
-  status: varchar("status", { length: 50 }).default("pending"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  orderId: text("orderId").notNull().unique(), // TXR-20250118-001 format
+  customerName: text("customerName").notNull(),
+  customerPhone: text("customerPhone").notNull(),
+  customerAddress: text("customerAddress").notNull(),
+  customerEmail: text("customerEmail"),
+  deliveryLocation: text("deliveryLocation"),
+  paymentMethod: text("paymentMethod").default("cash_on_delivery"),
+  specialInstructions: text("specialInstructions"),
+  promoCode: text("promoCode"),
+  items: jsonb("items").notNull(), // array of cart items
+  subtotal: integer("subtotal").notNull(),
+  totalAmount: integer("totalAmount").notNull(),
+  discountAmount: integer("discountAmount").default(0),
+  deliveryFee: integer("deliveryFee").default(0),
+  finalAmount: integer("finalAmount").notNull(),
+  status: text("status").default("pending"), // pending, processing, shipped, delivered
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow()
 });
 
 export const promoCodes = pgTable("promo_codes", {
