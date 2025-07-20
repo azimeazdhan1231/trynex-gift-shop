@@ -16,8 +16,9 @@ export default defineConfig(({ mode }) => ({
     port: 5000,
     proxy: mode === 'development' ? {
       "/api": {
-        target: "http://0.0.0.0:3001",
+        target: "http://localhost:3001",
         changeOrigin: true,
+        secure: false,
       },
     } : undefined,
   },

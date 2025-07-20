@@ -1,23 +1,36 @@
+
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertProductSchema, insertOrderSchema, insertPromoCodeSchema } from "@shared/schema";
 import { z } from "zod";
 import { eq, desc, like, and, sql } from "drizzle-orm";
-import express, {  } from "express";
+import express from "express";
 import { Router } from "express";
 
 const appRouter = Router();
 
 // Handle preflight requests for all routes
 appRouter.options("*", (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
   res.status(200).end();
 });
 
 // Products endpoints
 appRouter.get("/api/products", async (req, res) => {
   try {
-    const products = await storage.getProducts();
+    console.log("🔍 Fetching products...");
+    const { category, search, featured, limit } = req.query;
+    
+    const products = await storage.getProducts({
+      category: category as string,
+      search: search as string,
+      featured: featured === 'true',
+      limit: limit ? parseInt(limit as string) : undefined
+    });
+
     // Map database fields to frontend expected format
     const mappedProducts = products.map(product => ({
       id: product.id,
@@ -37,10 +50,12 @@ appRouter.get("/api/products", async (req, res) => {
       createdAt: product.created_at,
       updatedAt: product.updated_at
     }));
+
+    console.log(`✅ Found ${mappedProducts.length} products`);
     res.json(mappedProducts);
   } catch (error) {
-    console.error("Error fetching products:", error);
-    res.status(500).json({ error: "Failed to fetch products" });
+    console.error("❌ Error fetching products:", error);
+    res.status(500).json({ error: "Failed to fetch products", details: error.message });
   }
 });
 
@@ -293,7 +308,7 @@ appRouter.get("/api/categories", async (req, res) => {
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  app.use(appRouter)
+  app.use(appRouter);
   const httpServer = createServer(app);
   return httpServer;
 }
