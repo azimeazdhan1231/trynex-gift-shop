@@ -201,11 +201,9 @@ export default function CartModal() {
           category: item.category,
           image: item.image
         })),
-        customer: {
-          name: orderForm.customerName,
-          phone: orderForm.customerPhone,
-          address: `${orderForm.customerAddress}, ${selectedThana}, ${bangladeshLocations[selectedDistrict].name}`
-        },
+        customerName: orderForm.customerName,
+        customerPhone: orderForm.customerPhone,
+        customerAddress: `${orderForm.customerAddress}, ${selectedThana}, ${bangladeshLocations[selectedDistrict].name}`,
         district: selectedDistrict,
         thana: selectedThana,
         deliveryLocation: `${selectedThana}, ${bangladeshLocations[selectedDistrict].name}`,
@@ -279,19 +277,11 @@ export default function CartModal() {
   if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span className="flex items-center gap-2">🛒 Shopping Cart</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClose}
-              className="h-6 w-6 p-0 hover:bg-gray-100"
-            >
-              <X className="h-4 w-4" />
-            </Button>
           </DialogTitle>
         </DialogHeader>
 

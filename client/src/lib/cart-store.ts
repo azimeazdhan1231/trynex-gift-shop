@@ -16,6 +16,8 @@ interface CartStore {
   updateQuantity: (id: number, quantity: number) => void;
   clearCart: () => void;
   toggleCart: () => void;
+  openCart: () => void;
+  closeCart: () => void;
   setDeliveryZone: (zone: string) => void;
   setPaymentMethod: (method: string) => void;
   setPromoCode: (code: string, discount: number) => void;
@@ -99,6 +101,14 @@ export const useCartStore = create<CartStore>()(
 
       toggleCart: () => {
         set({ isOpen: !get().isOpen });
+      },
+
+      openCart: () => {
+        set({ isOpen: true });
+      },
+
+      closeCart: () => {
+        set({ isOpen: false });
       },
 
       setDeliveryZone: (zone) => {
