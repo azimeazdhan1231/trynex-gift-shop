@@ -28,8 +28,9 @@ interface CartStore {
 }
 
 export const deliveryZones: DeliveryZone[] = [
-  { id: 'dhaka', name: 'Dhaka Metro', namebn: 'ঢাকা মেট্রো', fee: 80 },
-  { id: 'outside', name: 'Outside Dhaka', namebn: 'ঢাকার বাইরে', fee: 120 }
+  { id: 'dhaka-inside', name: 'Inside Dhaka', namebn: 'ঢাকার ভিতরে', fee: 70 },
+  { id: 'dhaka-outside', name: 'Outside Dhaka', namebn: 'ঢাকার বাইরে', fee: 120 },
+  { id: 'outside-50km', name: '50km+ Outside', namebn: '50km+ বাইরে', fee: 150 }
 ];
 
 export const paymentMethods: PaymentMethod[] = [
@@ -43,7 +44,7 @@ export const useCartStore = create<CartStore>()(
     (set, get) => ({
       items: [],
       isOpen: false,
-      deliveryZone: 'dhaka',
+      deliveryZone: 'dhaka-inside',
       paymentMethod: 'bkash',
       promoCode: '',
       promoDiscount: 0,

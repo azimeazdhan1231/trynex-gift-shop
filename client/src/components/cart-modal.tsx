@@ -1,5 +1,6 @@
+
 import { getApiUrl } from "@/lib/config";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCartStore } from "@/lib/cart-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,17 +8,86 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, Plus, Minus } from "lucide-react";
+import { Trash2, Plus, Minus, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface OrderFormData {
   customerName: string;
   customerPhone: string;
   customerAddress: string;
-  deliveryLocation: string;
+  district: string;
+  thana: string;
   paymentMethod: string;
   specialInstructions: string;
 }
+
+// Bangladesh Districts and their major thanas
+const bangladeshLocations = {
+  "dhaka": {
+    name: "ঢাকা",
+    thanas: [
+      "দোহার", "সাভার", "ধামরাই", "নবাবগঞ্জ", "কেরানীগঞ্জ", "রমনা", "তেজগাঁও", "মতিঝিল", "গুলশান", 
+      "ধানমন্ডি", "উত্তরা", "মিরপুর", "পল্লবী", "শাহআলী", "তুরাগ", "দক্ষিণখান", "উত্তরখান"
+    ],
+    fee: 70
+  },
+  "chittagong": {
+    name: "চট্টগ্রাম",
+    thanas: [
+      "চট্টগ্রাম সদর", "হাটহাজারী", "রাউজান", "ফটিকছড়ি", "সীতাকুণ্ড", "মীরসরাই", "সন্দ্বীপ", 
+      "বাঁশখালী", "বোয়ালখালী", "আনোয়ারা", "চন্দনাইশ", "লোহাগাড়া", "পতেঙ্গা", "পাহাড়তলী"
+    ],
+    fee: 120
+  },
+  "sylhet": {
+    name: "সিলেট",
+    thanas: [
+      "সিলেট সদর", "বিয়ানীবাজার", "বালাগঞ্জ", "বিশ্বনাথ", "কোম্পানীগঞ্জ", "ফেঞ্চুগঞ্জ", 
+      "গোলাপগঞ্জ", "গোয়াইনঘাট", "জৈন্তাপুর", "কানাইঘাট", "ওসমানীনগর", "জকিগঞ্জ"
+    ],
+    fee: 120
+  },
+  "rajshahi": {
+    name: "রাজশাহী",
+    thanas: [
+      "রাজশাহী সদর", "বাগমারা", "চারঘাট", "দুর্গাপুর", "গোদাগাড়ী", "মোহনপুর", "পুঠিয়া", 
+      "তানোর", "বাগাতিপাড়া", "পাবা"
+    ],
+    fee: 120
+  },
+  "khulna": {
+    name: "খুলনা",
+    thanas: [
+      "খুলনা সদর", "বটিয়াঘাটা", "দাকোপ", "ডুমুরিয়া", "ফকিরহাট", "কয়রা", "পাইকগাছা", 
+      "ফুলতলা", "রূপসা", "তেরখাদা"
+    ],
+    fee: 120
+  },
+  "rangpur": {
+    name: "রংপুর",
+    thanas: [
+      "রংপুর সদর", "বদরগঞ্জ", "গঙ্গাচড়া", "কাউনিয়া", "মিঠাপুকুর", "পীরগঞ্জ", "পীরগাছা", 
+      "তারাগঞ্জ"
+    ],
+    fee: 150
+  },
+  "barisal": {
+    name: "বরিশাল",
+    thanas: [
+      "বরিশাল সদর", "আগৈলঝাড়া", "বাবুগঞ্জ", "বাকেরগঞ্জ", "বানারীপাড়া", "গৌরনদী", 
+      "হিজলা", "মেহেন্দিগঞ্জ", "মুলাদী", "উজিরপুর"
+    ],
+    fee: 150
+  },
+  "mymensingh": {
+    name: "ময়মনসিংহ",
+    thanas: [
+      "ময়মনসিংহ সদর", "ভালুকা", "ফুলবাড়িয়া", "গফরগাঁও", "গৌরীপুর", "হালুয়াঘাট", 
+      "ঈশ্বরগঞ্জ", "মুক্তাগাছা", "নান্দাইল", "ফুলপুর", "ত্রিশাল", "তারাকান্দা"
+    ],
+    fee: 120
+  }
+};
 
 export default function CartModal() {
   const {
@@ -27,38 +97,41 @@ export default function CartModal() {
     updateQuantity,
     removeItem,
     clearCart,
-    deliveryZone,
-    setDeliveryZone,
     paymentMethod,
     setPaymentMethod,
     getTotal
   } = useCartStore();
 
   const [promoCodeInput, setPromoCodeInput] = useState("");
+  const [selectedDistrict, setSelectedDistrict] = useState("");
+  const [selectedThana, setSelectedThana] = useState("");
+  const [deliveryFee, setDeliveryFee] = useState(70);
+
   const [orderForm, setOrderForm] = useState<OrderFormData>({
     customerName: "",
     customerPhone: "",
     customerAddress: "",
-    deliveryLocation: deliveryZone,
+    district: "",
+    thana: "",
     paymentMethod: paymentMethod,
     specialInstructions: ""
   });
 
   const [currentStep, setCurrentStep] = useState<"cart" | "form" | "confirmation">("cart");
   const [isProcessingOrder, setIsProcessingOrder] = useState(false);
+  const [confirmedOrderId, setConfirmedOrderId] = useState("");
   const { toast } = useToast();
 
-  // Update form when store values change
-  useState(() => {
-    setOrderForm(prev => ({
-      ...prev,
-      deliveryLocation: deliveryZone,
-      paymentMethod: paymentMethod
-    }));
-  });
+  // Update delivery fee when district changes
+  useEffect(() => {
+    if (selectedDistrict && bangladeshLocations[selectedDistrict]) {
+      setDeliveryFee(bangladeshLocations[selectedDistrict].fee);
+    }
+  }, [selectedDistrict]);
 
-  const deliveryFee = deliveryZone === "inside" ? 70 : 120;
   const subtotal = getTotal();
+  const advancePayment = 100;
+  const remainingAmount = subtotal + deliveryFee - advancePayment;
   const total = subtotal + deliveryFee;
 
   const handleApplyPromoCode = async () => {
@@ -72,7 +145,7 @@ export default function CartModal() {
     }
 
     try {
-      const response = await fetch(`/api/promo-codes/validate`, {
+      const response = await fetch(getApiUrl("/api/promo-codes/validate"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: promoCodeInput.trim() }),
@@ -105,7 +178,8 @@ export default function CartModal() {
     e.preventDefault();
 
     // Validate required fields
-    if (!orderForm.customerName.trim() || !orderForm.customerPhone.trim() || !orderForm.customerAddress.trim()) {
+    if (!orderForm.customerName.trim() || !orderForm.customerPhone.trim() || 
+        !orderForm.customerAddress.trim() || !selectedDistrict || !selectedThana) {
       toast({
         title: "সব তথ্য পূরণ করুন",
         description: "অনুগ্রহ করে সব প্রয়োজনীয় তথ্য পূরণ করুন",
@@ -130,17 +204,19 @@ export default function CartModal() {
         customer: {
           name: orderForm.customerName,
           phone: orderForm.customerPhone,
-          address: orderForm.customerAddress
+          address: `${orderForm.customerAddress}, ${selectedThana}, ${bangladeshLocations[selectedDistrict].name}`
         },
-        deliveryLocation: orderForm.deliveryLocation,
+        district: selectedDistrict,
+        thana: selectedThana,
+        deliveryLocation: `${selectedThana}, ${bangladeshLocations[selectedDistrict].name}`,
         paymentMethod: orderForm.paymentMethod,
         specialInstructions: orderForm.specialInstructions,
-        subtotal,
-        deliveryFee,
-        total
+        subtotal: subtotal * 100, // Convert to paisa
+        deliveryFee: deliveryFee * 100,
+        total: total * 100
       };
 
-      const response = await fetch("/api/orders", {
+      const response = await fetch(getApiUrl("/api/orders"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orderData),
@@ -148,6 +224,7 @@ export default function CartModal() {
 
       if (response.ok) {
         const result = await response.json();
+        setConfirmedOrderId(result.orderId);
         setCurrentStep("confirmation");
         clearCart();
         toast({
@@ -155,13 +232,14 @@ export default function CartModal() {
           description: `আপনার অর্ডার আইডি: ${result.orderId}`,
         });
       } else {
-        throw new Error("Order submission failed");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Order submission failed");
       }
     } catch (error) {
       console.error("Error submitting order:", error);
       toast({
         title: "অর্ডার করতে সমস্যা",
-        description: "আবার চেষ্টা করুন",
+        description: error.message || "আবার চেষ্টা করুন",
         variant: "destructive",
       });
     } finally {
@@ -172,11 +250,15 @@ export default function CartModal() {
   const handleClose = () => {
     closeCart();
     setCurrentStep("cart");
+    setSelectedDistrict("");
+    setSelectedThana("");
+    setDeliveryFee(70);
     setOrderForm({
       customerName: "",
       customerPhone: "",
       customerAddress: "",
-      deliveryLocation: deliveryZone,
+      district: "",
+      thana: "",
       paymentMethod: paymentMethod,
       specialInstructions: ""
     });
@@ -197,11 +279,19 @@ export default function CartModal() {
   if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            🛒 Shopping Cart
+          <DialogTitle className="flex items-center justify-between">
+            <span className="flex items-center gap-2">🛒 Shopping Cart</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClose}
+              className="h-6 w-6 p-0 hover:bg-gray-100"
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </DialogTitle>
         </DialogHeader>
 
@@ -268,13 +358,9 @@ export default function CartModal() {
                     <span>Subtotal:</span>
                     <span>৳{subtotal}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Delivery:</span>
-                    <span>৳{deliveryFee}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-lg">
-                    <span>Total:</span>
-                    <span>৳{total}</span>
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>Delivery Fee:</span>
+                    <span>Based on location selection</span>
                   </div>
                 </div>
 
@@ -310,38 +396,79 @@ export default function CartModal() {
             </div>
 
             <Textarea
-              placeholder="সম্পূর্ণ ঠিকানা / Complete Address *"
+              placeholder="বিস্তারিত ঠিকানা / Detailed Address *"
               value={orderForm.customerAddress}
               onChange={(e) => setOrderForm(prev => ({ ...prev, customerAddress: e.target.value }))}
               required
             />
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Delivery Location</label>
-              <Select 
-                value={deliveryZone} 
-                onValueChange={(value) => {
-                  setDeliveryZone(value as "inside" | "outside");
-                  setOrderForm(prev => ({ ...prev, deliveryLocation: value }));
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="inside">ঢাকার ভিতরে - ৳70</SelectItem>
-                  <SelectItem value="outside">ঢাকার বাইরে - ৳120</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">জেলা / District *</label>
+                <Select 
+                  value={selectedDistrict} 
+                  onValueChange={(value) => {
+                    setSelectedDistrict(value);
+                    setSelectedThana(""); // Reset thana when district changes
+                    setOrderForm(prev => ({ ...prev, district: value, thana: "" }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="জেলা নির্বাচন করুন" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(bangladeshLocations).map(([key, location]) => (
+                      <SelectItem key={key} value={key}>
+                        {location.name} - ৳{location.fee}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">থানা / Thana *</label>
+                <Select 
+                  value={selectedThana} 
+                  onValueChange={(value) => {
+                    setSelectedThana(value);
+                    setOrderForm(prev => ({ ...prev, thana: value }));
+                  }}
+                  disabled={!selectedDistrict}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="থানা নির্বাচন করুন" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectedDistrict && bangladeshLocations[selectedDistrict]?.thanas.map((thana) => (
+                      <SelectItem key={thana} value={thana}>
+                        {thana}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-2">Payment Method</label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { value: "bkash", label: "বিকাশ", icon: "💳" },
-                  { value: "nagad", label: "নগদ", icon: "💳" },
-                  { value: "rocket", label: "রকেট", icon: "💳" }
+                  { 
+                    value: "bkash", 
+                    label: "বিকাশ",
+                    color: "bg-pink-600 hover:bg-pink-700" 
+                  },
+                  { 
+                    value: "nagad", 
+                    label: "নগদ",
+                    color: "bg-red-600 hover:bg-red-700" 
+                  },
+                  { 
+                    value: "upay", 
+                    label: "উপায়",
+                    color: "bg-blue-600 hover:bg-blue-700" 
+                  }
                 ].map((method) => (
                   <Button
                     key={method.value}
@@ -351,12 +478,24 @@ export default function CartModal() {
                       setPaymentMethod(method.value);
                       setOrderForm(prev => ({ ...prev, paymentMethod: method.value }));
                     }}
-                    className="flex flex-col items-center p-4"
+                    className={`flex flex-col items-center p-4 h-16 ${
+                      paymentMethod === method.value ? method.color : ''
+                    }`}
                   >
-                    <span className="text-2xl mb-1">{method.icon}</span>
-                    <span className="text-sm">{method.label}</span>
+                    <span className="text-sm font-medium">{method.label}</span>
                   </Button>
                 ))}
+              </div>
+              
+              {/* Payment Instructions */}
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-sm space-y-2">
+                  <p className="font-medium text-blue-800">💰 Payment Instructions:</p>
+                  <p className="text-blue-700">• Send ৳{advancePayment} advance to: <span className="font-bold">01747292277</span></p>
+                  <p className="text-blue-700">• This secures your order booking</p>
+                  <p className="text-blue-700">• 100% refundable if any issues occur</p>
+                  <p className="text-blue-700">• Remaining ৳{remainingAmount} on delivery</p>
+                </div>
               </div>
             </div>
 
@@ -365,6 +504,27 @@ export default function CartModal() {
               value={orderForm.specialInstructions}
               onChange={(e) => setOrderForm(prev => ({ ...prev, specialInstructions: e.target.value }))}
             />
+
+            {/* Order Summary */}
+            {selectedDistrict && (
+              <div className="p-3 bg-gray-50 border rounded-lg">
+                <h4 className="font-medium mb-2">Order Summary</h4>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span>৳{subtotal}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Delivery ({bangladeshLocations[selectedDistrict]?.name}):</span>
+                    <span>৳{deliveryFee}</span>
+                  </div>
+                  <div className="flex justify-between font-bold">
+                    <span>Total:</span>
+                    <span>৳{total}</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-2">
               <Button 
@@ -389,13 +549,34 @@ export default function CartModal() {
         {currentStep === "confirmation" && (
           <div className="text-center space-y-4">
             <div className="text-green-600 text-6xl">✓</div>
-            <h3 className="text-xl font-bold">অর্ডার সফল হয়েছে!</h3>
-            <p className="text-gray-600">
-              আপনার অর্ডার গ্রহণ করা হয়েছে। শীঘ্রই আমরা আপনার সাথে যোগাযোগ করব।
-            </p>
-            <Button onClick={handleClose} className="w-full">
-              Continue Shopping
-            </Button>
+            <h3 className="text-xl font-bold text-green-600">অর্ডার সফল হয়েছে!</h3>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
+              <p className="font-medium text-green-800">
+                আপনার অর্ডার সফলভাবে গ্রহণ করা হয়েছে!
+              </p>
+              <div className="text-sm space-y-2">
+                <p><span className="font-medium">Order ID:</span> <span className="font-mono bg-gray-100 px-2 py-1 rounded">{confirmedOrderId}</span></p>
+                <p><span className="font-medium">Advance Payment:</span> ৳{advancePayment} to 01747292277</p>
+                <p><span className="font-medium">Remaining:</span> ৳{remainingAmount} (Cash on Delivery)</p>
+              </div>
+            </div>
+            <div className="text-sm text-gray-600 space-y-2">
+              <p>📱 We'll contact you within 1 hour to confirm</p>
+              <p>🚚 Delivery within 1-3 working days</p>
+              <p>💸 100% refundable advance payment</p>
+            </div>
+            <div className="space-y-2">
+              <Button 
+                onClick={() => window.open('/track-order', '_blank')} 
+                variant="outline" 
+                className="w-full"
+              >
+                Track Your Order
+              </Button>
+              <Button onClick={handleClose} className="w-full">
+                Continue Shopping
+              </Button>
+            </div>
           </div>
         )}
       </DialogContent>

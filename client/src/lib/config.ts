@@ -1,5 +1,10 @@
+export function getApiUrl(path: string = ""): string {
+  if (typeof window !== "undefined") {
+    // Client-side: use relative URLs
+    return path;
+  }
 
-export const getApiUrl = (path: string) => {
-  const baseUrl = import.meta.env.VITE_API_URL || window.location.origin;
+  // Server-side: use full URL
+  const baseUrl = process.env.VITE_API_URL || "http://localhost:3001";
   return `${baseUrl}${path}`;
-};
+}

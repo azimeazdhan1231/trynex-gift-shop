@@ -18,11 +18,11 @@ app.use((req, res, next) => {
   if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
     res.header('Access-Control-Allow-Origin', origin || '*');
   }
-  
+
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
-  
+
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
   } else {
@@ -64,7 +64,28 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  const port = parseInt(process.env.PORT || '3001', 10);
+
   const server = await registerRoutes(app);
+
+  // Handle port already in use
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`Port ${port} is busy, trying ${port + 1}...`);
+      server.listen(port + 1, '0.0.0.0', () => {
+        console.log(`🚀 Server running on http://0.0.0.0:${port + 1}`);
+        console.log(`📊 Database connected successfully`);
+        console.log(`🌐 API endpoints available at http://0.0.0.0:${port + 1}/api`);
+      });
+    } else {
+      console.error('Server error:', err);
+    }
+  });
+
+  server.listen(port, '0.0.0.0', () => {
+    log(`Server running on http://0.0.0.0:${port}`);
+    log(`API available at http://0.0.0.0:${port}/api`);
+  });
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -87,12 +108,4 @@ app.use((req, res, next) => {
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-  }, () => {
-    log(`Server running on http://0.0.0.0:${port}`);
-    log(`API available at http://0.0.0.0:${port}/api`);
-  });
 })();

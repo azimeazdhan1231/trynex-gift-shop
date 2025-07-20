@@ -18,7 +18,7 @@ export default function TrackOrder() {
   const { data: order, isLoading, error } = useQuery<Order>({
     queryKey: ["order", searchOrderId],
     queryFn: async () => {
-      const response = await fetch(`/api/orders/${searchOrderId}`);
+      const response = await fetch(getApiUrl(`/api/orders/${searchOrderId}`));
       if (!response.ok) {
         throw new Error('Order not found');
       }

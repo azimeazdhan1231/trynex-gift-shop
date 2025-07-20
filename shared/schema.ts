@@ -31,8 +31,8 @@ export const orders = pgTable("orders", {
   subtotal: integer("subtotal").notNull(),
   deliveryFee: integer("delivery_fee").notNull(),
   total: integer("total").notNull(),
-  paymentMethod: text("payment_method").notNull(), // bkash, nagad, rocket
-  deliveryLocation: text("delivery_location").notNull(), // dhaka, outside
+  paymentMethod: text("payment_method").notNull(), // bkash, nagad, upay
+  deliveryLocation: text("delivery_location").notNull(), // district, thana info
   specialInstructions: text("special_instructions"),
   status: text("status").default("pending"), // pending, processing, shipped, delivered
   createdAt: timestamp("created_at").defaultNow(),

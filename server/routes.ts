@@ -106,14 +106,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orderCount = (await storage.getOrders()).length + 1;
       const orderId = `TXR-${today}-${String(orderCount).padStart(3, '0')}`;
 
-      const orderData = insertOrderSchema.parse({
-        ...req.body,
-        orderId
-      });
+      const orderData = {
+        orderId,
+        customerName: req.body.customer.name,
+        customerPhone: req.body.customer.phone,
+        customerAddress: req.body.customer.address,
+        items: req.body.items,
+        subtotal: req.body.subtotal,
+        deliveryFee: req.body.deliveryFee,
+        total: req.body.total,
+        paymentMethod: req.body.paymentMethod,
+        deliveryLocation: req.body.deliveryLocation,
+        specialInstructions: req.body.specialInstructions || "",
+        status: "pending"
+      };
 
-      const order = await storage.createOrder(orderData);
-      res.json(order);
+      const validatedOrder = insertOrderSchema.parse(orderData);
+      const order = await storage.createOrder(validatedOrder);
+      res.json({ ...order, orderId });
     } catch (error) {
+      console.error("Order creation error:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid order data", details: error.errors });
       }
@@ -160,6 +172,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(promoCode);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch promo code" });
+    }
+  });
+
+  // Validate promo code
+  app.post("/api/promo-codes/validate", async (req, res) => {
+    try {
+      const { code } = req.body;
+      const promoCode = await storage.getPromoCode(code);
+      
+      if (!promoCode) {
+        return res.status(404).json({ error: "Invalid promo code" });
+      }
+
+      // Check if promo code is active and not expired
+      const now = new Date();
+      if (!promoCode.isActive || (promoCode.expiresAt && new Date(promoCode.expiresAt) < now)) {
+        return res.status(400).json({ error: "Promo code has expired" });
+      }
+
+      res.json({ 
+        code: promoCode.code, 
+        discount: promoCode.discountPercentage,
+        message: "Promo code applied successfully" 
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to validate promo code" });
     }
   });
 
