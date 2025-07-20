@@ -1,7 +1,9 @@
 
 // API Configuration
 const isDevelopment = import.meta.env.DEV;
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = isDevelopment 
+  ? 'http://localhost:5000' 
+  : 'https://trynex-backend-32fp.onrender.com';
 
 export function getApiUrl(path: string): string {
   // Remove leading slash if present to avoid double slashes

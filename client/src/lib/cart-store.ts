@@ -1,24 +1,28 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { getApiUrl } from './config';
 
 export interface CartItem {
   id: number;
   name: string;
-  namebn: string;
+  namebn?: string;
   price: number;
   quantity: number;
-  variant?: any;
-  imageUrl?: string;
+  imageUrl: string;
+  variant?: {
+    size?: string;
+    color?: string;
+  };
 }
 
 export interface CustomerInfo {
   name: string;
   phone: string;
-  email?: string;
   address: string;
+  email?: string;
   deliveryLocation?: string;
-  paymentMethod: string;
+  paymentMethod?: string;
   specialInstructions?: string;
   promoCode?: string;
 }
@@ -51,63 +55,74 @@ export const useCartStore = create<CartStore>()(
       customerInfo: {
         name: '',
         phone: '',
-        email: '',
         address: '',
+        email: '',
         deliveryLocation: '',
-        paymentMethod: 'cash_on_delivery',
+        paymentMethod: 'cash',
         specialInstructions: '',
         promoCode: ''
       },
 
-      addItem: (newItem) => set((state) => {
-        const existingItem = state.items.find(item => item.id === newItem.id);
+      addItem: (newItem) => {
+        set((state) => {
+          const existingItem = state.items.find(item => 
+            item.id === newItem.id && 
+            JSON.stringify(item.variant) === JSON.stringify(newItem.variant)
+          );
 
-        if (existingItem) {
+          if (existingItem) {
+            return {
+              items: state.items.map(item =>
+                item.id === newItem.id && 
+                JSON.stringify(item.variant) === JSON.stringify(newItem.variant)
+                  ? { ...item, quantity: item.quantity + newItem.quantity }
+                  : item
+              )
+            };
+          } else {
+            return {
+              items: [...state.items, newItem]
+            };
+          }
+        });
+      },
+
+      removeItem: (id) => {
+        set((state) => ({
+          items: state.items.filter(item => item.id !== id)
+        }));
+      },
+
+      updateQuantity: (id, quantity) => {
+        set((state) => {
+          if (quantity <= 0) {
+            return {
+              items: state.items.filter(item => item.id !== id)
+            };
+          }
           return {
             items: state.items.map(item =>
-              item.id === newItem.id
-                ? { ...item, quantity: item.quantity + newItem.quantity }
-                : item
+              item.id === id ? { ...item, quantity } : item
             )
           };
-        }
+        });
+      },
 
-        return {
-          items: [...state.items, newItem]
-        };
-      }),
-
-      removeItem: (id) => set((state) => ({
-        items: state.items.filter(item => item.id !== id)
-      })),
-
-      updateQuantity: (id, quantity) => set((state) => {
-        if (quantity <= 0) {
-          return {
-            items: state.items.filter(item => item.id !== id)
-          };
-        }
-
-        return {
-          items: state.items.map(item =>
-            item.id === id ? { ...item, quantity } : item
-          )
-        };
-      }),
-
-      clearCart: () => set(() => ({
-        items: [],
-        customerInfo: {
-          name: '',
-          phone: '',
-          email: '',
-          address: '',
-          deliveryLocation: '',
-          paymentMethod: 'cash_on_delivery',
-          specialInstructions: '',
-          promoCode: ''
-        }
-      })),
+      clearCart: () => {
+        set(() => ({
+          items: [],
+          customerInfo: {
+            name: '',
+            phone: '',
+            address: '',
+            email: '',
+            deliveryLocation: '',
+            paymentMethod: 'cash',
+            specialInstructions: '',
+            promoCode: ''
+          }
+        }));
+      },
 
       getSubtotal: () => {
         const { items } = get();
@@ -115,9 +130,8 @@ export const useCartStore = create<CartStore>()(
       },
 
       getTotal: () => {
-        const { items } = get();
-        const subtotal = items.reduce((total, item) => total + (item.price * item.quantity), 0);
-        const deliveryFee = 6000; // 60 BDT in paisa
+        const subtotal = get().getSubtotal();
+        const deliveryFee = subtotal > 100000 ? 0 : 6000; // Free delivery over 1000 BDT
         return subtotal + deliveryFee;
       },
 
@@ -151,61 +165,71 @@ export const useCartStore = create<CartStore>()(
       })),
 
       createOrder: async () => {
-        const { items, customerInfo, clearCart } = get();
-
+        const { items, customerInfo, getTotal, clearCart } = get();
+        
         if (items.length === 0) {
           return { success: false, error: 'Cart is empty' };
         }
 
         if (!customerInfo.name || !customerInfo.phone || !customerInfo.address) {
-          return { success: false, error: 'Missing required customer information' };
+          return { success: false, error: 'Please fill in all required fields' };
         }
 
-        const subtotal = items.reduce((total, item) => total + (item.price * item.quantity), 0);
-        const deliveryFee = 6000; // 60 BDT in paisa
-        const finalAmount = subtotal + deliveryFee;
-
         try {
-          const response = await fetch('/api/orders', {
+          const orderData = {
+            customerName: customerInfo.name,
+            customerPhone: customerInfo.phone,
+            customerAddress: customerInfo.address,
+            customerEmail: customerInfo.email || '',
+            deliveryLocation: customerInfo.deliveryLocation || '',
+            paymentMethod: customerInfo.paymentMethod || 'cash',
+            specialInstructions: customerInfo.specialInstructions || '',
+            promoCode: customerInfo.promoCode || '',
+            items: items.map(item => ({
+              productId: item.id,
+              name: item.name,
+              price: item.price,
+              quantity: item.quantity,
+              variant: item.variant || {}
+            })),
+            totalAmount: getTotal(),
+            discountAmount: 0,
+            deliveryFee: getTotal() - get().getSubtotal(),
+            finalAmount: getTotal()
+          };
+
+          const response = await fetch(getApiUrl('api/orders'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              customerName: customerInfo.name,
-              customerPhone: customerInfo.phone,
-              customerEmail: customerInfo.email || null,
-              customerAddress: customerInfo.address,
-              deliveryLocation: customerInfo.deliveryLocation || null,
-              paymentMethod: customerInfo.paymentMethod,
-              specialInstructions: customerInfo.specialInstructions || null,
-              promoCode: customerInfo.promoCode || null,
-              items: items,
-              subtotal: subtotal,
-              totalAmount: subtotal,
-              deliveryFee: deliveryFee,
-              discountAmount: 0,
-              finalAmount: finalAmount
-            }),
+            body: JSON.stringify(orderData),
           });
 
-          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
 
+          const result = await response.json();
+          
           if (result.success) {
             clearCart();
             return { success: true, orderId: result.orderId };
           } else {
             return { success: false, error: result.error || 'Failed to create order' };
           }
-
         } catch (error) {
-          console.error('Order creation error:', error);
-          return { success: false, error: 'Network error occurred' };
+          console.error('Error creating order:', error);
+          return { success: false, error: 'Network error. Please try again.' };
         }
       }
     }),
     {
       name: 'cart-storage',
+      partialize: (state) => ({
+        items: state.items,
+        customerInfo: state.customerInfo,
+      }),
     }
   )
 );
