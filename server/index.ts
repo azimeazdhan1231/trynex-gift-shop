@@ -3,6 +3,33 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+// CORS configuration for frontend
+app.use((req, res, next) => {
+  const allowedOrigins = [
+    'https://trynex-gift-shop.netlify.app',
+    'http://localhost:5000',
+    'https://replit.dev',
+    'https://*.replit.dev',
+    process.env.FRONTEND_URL
+  ].filter(Boolean);
+
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -64,8 +91,8 @@ app.use((req, res, next) => {
   server.listen({
     port,
     host: "0.0.0.0",
-    reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    log(`Server running on http://0.0.0.0:${port}`);
+    log(`API available at http://0.0.0.0:${port}/api`);
   });
 })();

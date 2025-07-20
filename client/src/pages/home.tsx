@@ -1,3 +1,15 @@
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight, Star, ShoppingCart, Heart, Search, ArrowRight, Gift, Truck, Shield, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useCartStore } from "@/lib/cart-store";
+import { getApiUrl } from "@/lib/config";
+import CategoryGrid from "@/components/category-grid";
+import HeroSlider from "@/components/hero-slider";
+import type { Product } from "@shared/schema";
+import type { Category } from "@/types";
 import { useQuery } from "@tanstack/react-query";
 import HeroSlider from "@/components/hero-slider";
 import ProductCard from "@/components/product-card";
@@ -11,7 +23,7 @@ export default function Home() {
   const { data: featuredProducts } = useQuery<Product[]>({
     queryKey: ["products", "featured"],
     queryFn: async () => {
-      const response = await fetch(getApiUrl('/api/products?featured=true'));
+      const response = await fetch(getApiUrl("/api/products?featured=true"));
       if (!response.ok) throw new Error('Failed to fetch featured products');
       return response.json();
     }
@@ -44,7 +56,7 @@ export default function Home() {
               <h3 className="text-3xl md:text-4xl font-bold mb-2 animate-bounce">⚡ Flash Sale - 30% OFF</h3>
               <p className="font-bengali text-lg md:text-xl opacity-90">সীমিত সময়ের অফার! তাড়াতাড়ি করুন!</p>
             </div>
-            
+
             <div className="flex items-center space-x-2 md:space-x-4 bg-white/20 backdrop-blur-sm rounded-2xl px-4 md:px-6 py-3">
               <div className="text-center">
                 <div className="text-2xl md:text-3xl font-bold animate-pulse">12</div>
@@ -61,7 +73,7 @@ export default function Home() {
                 <div className="text-xs md:text-sm opacity-80">SECS</div>
               </div>
             </div>
-            
+
             <div className="flex flex-wrap items-center justify-center gap-3 lg:gap-4">
               <Badge className="bg-white/20 backdrop-blur-sm text-white border-white/30 px-3 md:px-6 py-2 md:py-3 text-sm md:text-base hover:bg-white/30 transition-all duration-300 transform hover:scale-105">
                 💝 ফ্রি গিফট র‍্যাপিং
