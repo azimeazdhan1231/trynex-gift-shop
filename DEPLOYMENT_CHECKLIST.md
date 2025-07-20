@@ -30,7 +30,7 @@
 5. Configure:
    - **Name**: `trynex-backend`
    - **Environment**: `Node`
-   - **Build Command**: `npm install && npm run build`
+   - **Build Command**: `npm ci --include=dev && npm run build`
    - **Start Command**: `npm run start`
 6. Add Environment Variables:
    ```
