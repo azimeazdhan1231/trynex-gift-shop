@@ -66,16 +66,32 @@ export const insertProductSchema = createInsertSchema(products).omit({
 });
 
 export const insertOrderSchema = createInsertSchema(orders).omit({
-  id: true,
   createdAt: true,
   updatedAt: true
 }).extend({
-  items: z.array(z.any()).default([]),
+  id: z.string().optional(),
+  orderId: z.string(),
+  customerName: z.string().min(1),
+  customerPhone: z.string().min(1),
+  customerAddress: z.string().min(1),
+  customerEmail: z.string().nullable().optional(),
+  deliveryLocation: z.string().optional(),
+  paymentMethod: z.string().default("cash_on_delivery"),
+  specialInstructions: z.string().nullable().optional(),
+  promoCode: z.string().nullable().optional(),
+  items: z.array(z.object({
+    id: z.number().optional(),
+    name: z.string(),
+    namebn: z.string().optional(),
+    price: z.number(),
+    quantity: z.number(),
+    category: z.string().optional(),
+    image: z.string().optional()
+  })).default([]),
   totalAmount: z.number().int().min(0),
   discountAmount: z.number().int().min(0).default(0),
   deliveryFee: z.number().int().min(0).default(0),
   finalAmount: z.number().int().min(0),
-  paymentMethod: z.string().default("cash_on_delivery"),
   status: z.string().default("pending")
 });
 

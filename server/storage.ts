@@ -109,6 +109,8 @@ export class DatabaseStorage implements IStorage {
 
   async createOrder(orderData: InsertOrder): Promise<Order> {
     try {
+      console.log("Storage: Creating order with data:", JSON.stringify(orderData, null, 2));
+      
       // Generate a unique order ID if not provided
       if (!orderData.orderId) {
         const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -117,10 +119,29 @@ export class DatabaseStorage implements IStorage {
         orderData.orderId = `TRY-${today}-${timestamp}-${random}`;
       }
 
+      // Generate primary key if not provided
+      if (!orderData.id) {
+        orderData.id = `order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+      }
+
+      // Ensure items is properly formatted as JSONB
+      if (orderData.items && Array.isArray(orderData.items)) {
+        orderData.items = orderData.items;
+      } else {
+        orderData.items = [];
+      }
+
+      console.log("Storage: Final order data before insert:", JSON.stringify(orderData, null, 2));
+
       const result = await db.insert(orders).values(orderData).returning();
+      console.log("Storage: Order created successfully:", result[0]);
       return result[0];
     } catch (error) {
-      console.error("Error creating order:", error);
+      console.error("Storage: Error creating order:", error);
+      console.error("Storage: Error details:", error.message);
+      if (error.code) {
+        console.error("Storage: Database error code:", error.code);
+      }
       throw error;
     }
   }

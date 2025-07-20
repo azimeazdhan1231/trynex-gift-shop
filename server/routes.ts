@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertProductSchema, insertOrderSchema, insertPromoCodeSchema } from "@shared/schema";
 import { z } from "zod";
+import { eq, desc, like, and, sql } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Products routes
@@ -113,96 +114,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create order endpoint
   app.post("/api/orders", async (req, res) => {
     try {
-      console.log("Received order request:", req.body);
+      console.log("📝 Creating order with data:", req.body);
 
-      // Validate required fields
-      if (!req.body.customerName || !req.body.customerPhone || !req.body.customerAddress) {
-        return res.status(400).json({ 
-          error: "Missing required fields",
-          details: "customerName, customerPhone, and customerAddress are required"
-        });
-      }
-
-      // Generate unique order ID with timestamp
-      const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const timestamp = Date.now().toString().slice(-6);
-      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const orderId = `TRY-${today}-${timestamp}-${random}`;
-
-      // Ensure items is an array and validate structure
-      let items = [];
-      if (Array.isArray(req.body.items)) {
-        items = req.body.items.map(item => ({
-          id: item.id || 0,
-          name: item.name || "",
-          namebn: item.namebn || "",
-          price: Math.round(Number(item.price) || 0),
-          quantity: Math.round(Number(item.quantity) || 1),
-          category: item.category || "",
-          image: item.image || ""
-        }));
-      }
-
-      const totalAmount = Math.round(Number(req.body.totalAmount) || 0);
-      const deliveryFee = Math.round(Number(req.body.deliveryFee) || 0);
-      const discountAmount = Math.round(Number(req.body.discountAmount) || 0);
-      const finalAmount = Math.round(Number(req.body.finalAmount) || (totalAmount + deliveryFee - discountAmount));
+      // Generate order ID
+      const orderId = `TXR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
 
       const orderData = {
-        orderId,
-        customerName: String(req.body.customerName).trim(),
-        customerPhone: String(req.body.customerPhone).trim(),
-        customerAddress: String(req.body.customerAddress).trim(),
-        customerEmail: req.body.customerEmail ? String(req.body.customerEmail).trim() : null,
-        deliveryLocation: req.body.deliveryLocation ? String(req.body.deliveryLocation).trim() : req.body.customerAddress,
-        paymentMethod: req.body.paymentMethod || "bkash",
-        specialInstructions: req.body.specialInstructions ? String(req.body.specialInstructions).trim() : null,
-        promoCode: req.body.promoCode ? String(req.body.promoCode).trim() : null,
-        items: items,
-        totalAmount: totalAmount,
-        discountAmount: discountAmount,
-        deliveryFee: deliveryFee,
-        finalAmount: finalAmount,
-        status: "pending"
+        id: crypto.randomUUID(),
+        order_id: orderId,
+        customer_name: req.body.customerName,
+        customer_phone: req.body.customerPhone,
+        customer_address: req.body.customerAddress,
+        customer_email: req.body.customerEmail,
+        delivery_location: req.body.deliveryLocation,
+        payment_method: req.body.paymentMethod || 'cash_on_delivery',
+        special_instructions: req.body.specialInstructions,
+        promo_code: req.body.promoCode,
+        items: JSON.stringify(req.body.items || []),
+        total_amount: req.body.totalAmount || 0,
+        discount_amount: req.body.discountAmount || 0,
+        delivery_fee: req.body.deliveryFee || 0,
+        final_amount: req.body.finalAmount || req.body.totalAmount || 0,
+        status: 'pending'
       };
 
-      console.log("Processed order data:", orderData);
+      // Use raw SQL query since the schema names don't match Drizzle exactly
+      const result = await db.execute(sql`
+        INSERT INTO orders (
+          id, order_id, customer_name, customer_phone, customer_address, 
+          customer_email, delivery_location, payment_method, special_instructions, 
+          promo_code, items, total_amount, discount_amount, delivery_fee, 
+          final_amount, status, created_at, updated_at
+        ) VALUES (
+          ${orderData.id}, ${orderData.order_id}, ${orderData.customer_name}, 
+          ${orderData.customer_phone}, ${orderData.customer_address}, 
+          ${orderData.customer_email}, ${orderData.delivery_location}, 
+          ${orderData.payment_method}, ${orderData.special_instructions}, 
+          ${orderData.promo_code}, ${orderData.items}, ${orderData.total_amount}, 
+          ${orderData.discount_amount}, ${orderData.delivery_fee}, 
+          ${orderData.final_amount}, ${orderData.status}, NOW(), NOW()
+        ) RETURNING *
+      `);
 
-      // Validate the order data
-      const validatedOrder = insertOrderSchema.parse(orderData);
-      console.log("Validated order data passed");
-
-      // Create the order
-      const order = await storage.createOrder(validatedOrder);
-      console.log("Order created successfully:", order);
-
-      res.json({ 
-        success: true,
-        order: order,
-        orderId: orderId,
-        message: "Order placed successfully"
-      });
+      console.log("✅ Order created successfully:", result.rows[0]);
+      res.json({ success: true, order: result.rows[0] });
     } catch (error) {
-      console.error("Order creation error:", error);
-
-      if (error instanceof z.ZodError) {
-        console.error("Validation errors:", error.errors);
-        return res.status(400).json({ 
-          error: "Invalid order data", 
-          details: error.errors.map(err => ({
-            field: err.path.join('.'),
-            message: err.message,
-            received: err.input
-          }))
-        });
-      }
-
-      res.status(500).json({ 
-        error: "Failed to create order",
-        message: error.message || "Internal server error"
-      });
+      console.error("❌ Error creating order:", error);
+      res.status(500).json({ error: "Failed to create order", details: error.message });
     }
   });
 
