@@ -4,319 +4,275 @@ import { storage } from "./storage";
 import { insertProductSchema, insertOrderSchema, insertPromoCodeSchema } from "@shared/schema";
 import { z } from "zod";
 import { eq, desc, like, and, sql } from "drizzle-orm";
+import express, {  } from "express";
+import { Router } from "express";
+
+const appRouter = Router();
+
+// Products endpoints
+appRouter.get("/api/products", async (req, res) => {
+  try {
+    const products = await storage.getProducts();
+    // Map database fields to frontend expected format
+    const mappedProducts = products.map(product => ({
+      id: product.id,
+      name: product.name,
+      namebn: product.name_bn,
+      description: product.description,
+      descriptionbn: product.description_bn,
+      price: product.price,
+      category: product.category,
+      categorybn: product.category_bn,
+      imageUrl: product.image_url,
+      stock: product.stock,
+      isActive: product.is_active,
+      isFeatured: product.is_featured,
+      tags: product.tags,
+      variants: product.variants,
+      createdAt: product.created_at,
+      updatedAt: product.updated_at
+    }));
+    res.json(mappedProducts);
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    res.status(500).json({ error: "Failed to fetch products" });
+  }
+});
+
+appRouter.get("/api/products/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "Invalid product ID" });
+    }
+
+    const product = await storage.getProduct(id);
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    // Map database fields to frontend expected format
+    const mappedProduct = {
+      id: product.id,
+      name: product.name,
+      namebn: product.name_bn,
+      description: product.description,
+      descriptionbn: product.description_bn,
+      price: product.price,
+      category: product.category,
+      categorybn: product.category_bn,
+      imageUrl: product.image_url,
+      stock: product.stock,
+      isActive: product.is_active,
+      isFeatured: product.is_featured,
+      tags: product.tags,
+      variants: product.variants,
+      createdAt: product.created_at,
+      updatedAt: product.updated_at
+    };
+
+    res.json(mappedProduct);
+  } catch (error) {
+    console.error("Error fetching product:", error);
+    res.status(500).json({ error: "Failed to fetch product" });
+  }
+});
+
+// Orders endpoints
+const createOrderSchema = z.object({
+  customerName: z.string().min(1),
+  customerPhone: z.string().min(1),
+  customerEmail: z.string().email().optional(),
+  customerAddress: z.string().min(1),
+  deliveryLocation: z.string().optional(),
+  paymentMethod: z.string().default("cash_on_delivery"),
+  specialInstructions: z.string().optional(),
+  promoCode: z.string().optional(),
+  items: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    namebn: z.string().optional(),
+    price: z.number(),
+    quantity: z.number().min(1),
+    variant: z.any().optional()
+  })),
+  subtotal: z.number(),
+  deliveryFee: z.number().default(6000),
+  discountAmount: z.number().default(0),
+  totalAmount: z.number(),
+  finalAmount: z.number()
+});
+
+appRouter.post("/api/orders", async (req, res) => {
+  try {
+    const validatedData = createOrderSchema.parse(req.body);
+
+    // Map frontend fields to database fields
+    const orderData = {
+      customer_name: validatedData.customerName,
+      customer_phone: validatedData.customerPhone,
+      customer_email: validatedData.customerEmail,
+      customer_address: validatedData.customerAddress,
+      delivery_location: validatedData.deliveryLocation,
+      payment_method: validatedData.paymentMethod,
+      special_instructions: validatedData.specialInstructions,
+      promo_code: validatedData.promoCode,
+      items: validatedData.items.map(item => ({
+        id: item.id,
+        name: item.name,
+        name_bn: item.namebn || item.name,
+        price: item.price,
+        quantity: item.quantity,
+        variant: item.variant
+      })),
+      subtotal: validatedData.subtotal,
+      delivery_fee: validatedData.deliveryFee,
+      discount_amount: validatedData.discountAmount,
+      total_amount: validatedData.totalAmount,
+      final_amount: validatedData.finalAmount
+    };
+
+    const order = await storage.createOrder(orderData);
+
+    // Map database fields back to frontend expected format
+    const mappedOrder = {
+      id: order.id,
+      orderId: order.order_id,
+      customerName: order.customer_name,
+      customerPhone: order.customer_phone,
+      customerEmail: order.customer_email,
+      customerAddress: order.customer_address,
+      deliveryLocation: order.delivery_location,
+      paymentMethod: order.payment_method,
+      specialInstructions: order.special_instructions,
+      promoCode: order.promo_code,
+      items: order.items,
+      subtotal: order.subtotal,
+      deliveryFee: order.delivery_fee,
+      discountAmount: order.discount_amount,
+      totalAmount: order.total_amount,
+      finalAmount: order.final_amount,
+      status: order.status,
+      createdAt: order.created_at,
+      updatedAt: order.updated_at
+    };
+
+    res.status(201).json(mappedOrder);
+  } catch (error) {
+    console.error("Error creating order:", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid order data", details: error.errors });
+    }
+    res.status(500).json({ error: "Failed to create order" });
+  }
+});
+
+appRouter.get("/api/orders/:orderId", async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = await storage.getOrderByOrderId(orderId);
+
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    // Map database fields to frontend expected format
+    const mappedOrder = {
+      id: order.id,
+      orderId: order.order_id,
+      customerName: order.customer_name,
+      customerPhone: order.customer_phone,
+      customerEmail: order.customer_email,
+      customerAddress: order.customer_address,
+      deliveryLocation: order.delivery_location,
+      paymentMethod: order.payment_method,
+      specialInstructions: order.special_instructions,
+      promoCode: order.promo_code,
+      items: order.items,
+      subtotal: order.subtotal,
+      deliveryFee: order.delivery_fee,
+      discountAmount: order.discount_amount,
+      totalAmount: order.total_amount,
+      finalAmount: order.final_amount,
+      status: order.status,
+      createdAt: order.created_at,
+      updatedAt: order.updated_at
+    };
+
+    res.json(mappedOrder);
+  } catch (error) {
+    console.error("Error fetching order:", error);
+    res.status(500).json({ error: "Failed to fetch order" });
+  }
+});
+
+// Promo codes endpoint
+appRouter.get("/api/promo-codes/:code", async (req, res) => {
+  try {
+    const { code } = req.params;
+    const promoCode = await storage.getPromoCode(code);
+
+    if (!promoCode || !promoCode.is_active || (promoCode.expires_at && promoCode.expires_at < new Date())) {
+      return res.status(404).json({ error: "Promo code not found or expired" });
+    }
+
+    // Map database fields to frontend expected format
+    const mappedPromoCode = {
+      id: promoCode.id,
+      code: promoCode.code,
+      discountPercentage: promoCode.discount_percentage,
+      isActive: promoCode.is_active,
+      expiresAt: promoCode.expires_at,
+      createdAt: promoCode.created_at,
+      updatedAt: promoCode.updated_at
+    };
+
+    res.json(mappedPromoCode);
+  } catch (error) {
+    console.error("Error fetching promo code:", error);
+    res.status(500).json({ error: "Failed to fetch promo code" });
+  }
+});
+
+// Health check endpoint
+appRouter.get("/api/health", async (req, res) => {
+  try {
+    const products = await storage.getProducts();
+    res.json({ 
+      status: "healthy", 
+      database: "connected",
+      productsCount: products.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      status: "unhealthy", 
+      database: "error",
+      error: error.message 
+    });
+  }
+});
+
+// Categories route (static data)
+appRouter.get("/api/categories", async (req, res) => {
+  const categories = [
+    { id: "mugs", name: "Mugs", namebn: "মগ", icon: "fa-mug-hot", minPrice: 550 },
+    { id: "tshirts", name: "T-Shirts", namebn: "টি-শার্ট", icon: "fa-tshirt", minPrice: 350 },
+    { id: "keychains", name: "Keychains", namebn: "চাবির চেইন", icon: "fa-key", minPrice: 300 },
+    { id: "bottles", name: "Water Bottles", namebn: "পানির বোতল", icon: "fa-wine-bottle", minPrice: 800 },
+    { id: "gift-him", name: "Gift for Him", namebn: "তার জন্য গিফট", icon: "fa-male", minPrice: 1200 },
+    { id: "gift-her", name: "Gift for Her", namebn: "তার জন্য গিফট", icon: "fa-female", minPrice: 1500 },
+    { id: "gift-parents", name: "Gift for Parents", namebn: "মা-বাবার জন্য", icon: "fa-heart", minPrice: 1000 },
+    { id: "gift-babies", name: "Gifts for Babies", namebn: "শিশুদের জন্য", icon: "fa-baby", minPrice: 700 },
+    { id: "couple", name: "For Couple", namebn: "কাপলের জন্য", icon: "fa-heart", minPrice: 1100 },
+    { id: "hampers", name: "Premium Luxury Gift Hampers", namebn: "প্রিমিয়াম হ্যাম্পার", icon: "fa-gift", minPrice: 2500 },
+    { id: "chocolates-flowers", name: "Chocolates & Flowers", namebn: "চকলেট ও ফুল", icon: "fa-heart", minPrice: 1300 }
+  ];
+  res.json(categories);
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Health check endpoint
-  app.get("/api/health", async (req, res) => {
-    try {
-      const products = await storage.getProducts();
-      res.json({ 
-        status: "healthy", 
-        database: "connected",
-        productsCount: products.length,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      res.status(500).json({ 
-        status: "unhealthy", 
-        database: "error",
-        error: error.message 
-      });
-    }
-  });
-
-  // Products routes
-  app.get("/api/products", async (req, res) => {
-    try {
-      const { category, search, featured } = req.query;
-      const products = await storage.getProducts(
-        category as string,
-        search as string,
-        featured === 'true'
-      );
-      res.json(products);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch products" });
-    }
-  });
-
-  app.get("/api/products/:id", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const product = await storage.getProduct(id);
-      if (!product) {
-        return res.status(404).json({ error: "Product not found" });
-      }
-      res.json(product);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch product" });
-    }
-  });
-
-  app.post("/api/products", async (req, res) => {
-    try {
-      const productData = insertProductSchema.parse(req.body);
-      const product = await storage.createProduct(productData);
-      res.json(product);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid product data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to create product" });
-    }
-  });
-
-  app.put("/api/products/:id", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const productData = insertProductSchema.partial().parse(req.body);
-      const product = await storage.updateProduct(id, productData);
-      if (!product) {
-        return res.status(404).json({ error: "Product not found" });
-      }
-      res.json(product);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid product data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to update product" });
-    }
-  });
-
-  app.delete("/api/products/:id", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const success = await storage.deleteProduct(id);
-      if (!success) {
-        return res.status(404).json({ error: "Product not found" });
-      }
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete product" });
-    }
-  });
-
-  // Orders routes
-  app.get("/api/orders", async (req, res) => {
-    try {
-      const orders = await storage.getOrders();
-      res.json(orders);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch orders" });
-    }
-  });
-
-  app.get("/api/orders/:orderId", async (req, res) => {
-    try {
-      const orderId = req.params.orderId;
-      const order = await storage.getOrder(orderId);
-      if (!order) {
-        return res.status(404).json({ error: "Order not found" });
-      }
-      res.json(order);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch order" });
-    }
-  });
-
-  // Order tracking endpoint
-  app.get("/api/orders/track/:orderId", async (req, res) => {
-    try {
-      const orderId = req.params.orderId;
-      const order = await storage.getOrderByOrderId(orderId);
-      if (!order) {
-        return res.status(404).json({ error: "Order not found" });
-      }
-      res.json(order);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch order" });
-    }
-  });
-
-  // Create order
-  app.post('/api/orders', async (req, res) => {
-    try {
-      const orderData = req.body;
-      console.log('Creating order with data:', orderData);
-
-      // Generate unique order ID
-      const timestamp = Date.now();
-      const randomSuffix = Math.random().toString(36).substr(2, 6).toUpperCase();
-      const orderId = `TG-${timestamp}-${randomSuffix}`;
-
-      // Validate required fields
-      if (!orderData.customerName || !orderData.customerPhone || !orderData.customerAddress) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Missing required customer information' 
-        });
-      }
-
-      if (!orderData.items || orderData.items.length === 0) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Order must contain at least one item' 
-        });
-      }
-
-      // Create order using storage function
-      const order = await storage.createOrder({
-        id: orderId,
-        orderId: orderId,
-        customerName: orderData.customerName,
-        customerPhone: orderData.customerPhone,
-        customerAddress: orderData.customerAddress,
-        customerEmail: orderData.customerEmail || null,
-        deliveryLocation: orderData.deliveryLocation || null,
-        paymentMethod: orderData.paymentMethod || 'cash_on_delivery',
-        specialInstructions: orderData.specialInstructions || null,
-        promoCode: orderData.promoCode || null,
-        items: orderData.items,
-        subtotal: orderData.subtotal || 0,
-        totalAmount: orderData.totalAmount || 0,
-        discountAmount: orderData.discountAmount || 0,
-        deliveryFee: orderData.deliveryFee || 6000,
-        finalAmount: orderData.finalAmount || 0,
-        status: 'pending'
-      });
-
-      console.log('Order created successfully:', order);
-      res.json({ success: true, orderId, order });
-    } catch (error) {
-      console.error('Error creating order:', error);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  });
-
-  app.put("/api/orders/:orderId/status", async (req, res) => {
-    try {
-      const orderId = req.params.orderId;
-      const { status } = req.body;
-
-      if (!status || !['pending', 'processing', 'shipped', 'delivered'].includes(status)) {
-        return res.status(400).json({ error: "Invalid status" });
-      }
-
-      const order = await storage.updateOrderStatus(orderId, status);
-      if (!order) {
-        return res.status(404).json({ error: "Order not found" });
-      }
-      res.json(order);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to update order status" });
-    }
-  });
-
-  // Promo codes routes
-  app.get("/api/promo-codes", async (req, res) => {
-    try {
-      const promoCodes = await storage.getPromoCodes();
-      res.json(promoCodes);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch promo codes" });
-    }
-  });
-
-  app.get("/api/promo-codes/:code", async (req, res) => {
-    try {
-      const code = req.params.code;
-      const promoCode = await storage.getPromoCode(code);
-      if (!promoCode) {
-        return res.status(404).json({ error: "Promo code not found" });
-      }
-      res.json(promoCode);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch promo code" });
-    }
-  });
-
-  // Validate promo code
-  app.post("/api/promo-codes/validate", async (req, res) => {
-    try {
-      const { code } = req.body;
-      const promoCode = await storage.getPromoCode(code);
-
-      if (!promoCode) {
-        return res.status(404).json({ error: "Invalid promo code" });
-      }
-
-      // Check if promo code is active and not expired
-      const now = new Date();
-      if (!promoCode.isActive || (promoCode.expiresAt && new Date(promoCode.expiresAt) < now)) {
-        return res.status(400).json({ error: "Promo code has expired" });
-      }
-
-      res.json({ 
-        code: promoCode.code, 
-        discount: promoCode.discountPercentage,
-        message: "Promo code applied successfully" 
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to validate promo code" });
-    }
-  });
-
-  app.post("/api/promo-codes", async (req, res) => {
-    try {
-      const promoCodeData = insertPromoCodeSchema.parse(req.body);
-      const promoCode = await storage.createPromoCode(promoCodeData);
-      res.json(promoCode);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid promo code data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to create promo code" });
-    }
-  });
-
-  app.put("/api/promo-codes/:id", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const promoCodeData = insertPromoCodeSchema.partial().parse(req.body);
-      const promoCode = await storage.updatePromoCode(id, promoCodeData);
-      if (!promoCode) {
-        return res.status(404).json({ error: "Promo code not found" });
-      }
-      res.json(promoCode);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid promo code data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to update promo code" });
-    }
-  });
-
-  app.delete("/api/promo-codes/:id", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const success = await storage.deletePromoCode(id);
-      if (!success) {
-        return res.status(404).json({ error: "Promo code not found" });
-      }
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete promo code" });
-    }
-  });
-
-  // Categories route (static data)
-  app.get("/api/categories", async (req, res) => {
-    const categories = [
-      { id: "mugs", name: "Mugs", namebn: "মগ", icon: "fa-mug-hot", minPrice: 550 },
-      { id: "tshirts", name: "T-Shirts", namebn: "টি-শার্ট", icon: "fa-tshirt", minPrice: 350 },
-      { id: "keychains", name: "Keychains", namebn: "চাবির চেইন", icon: "fa-key", minPrice: 300 },
-      { id: "bottles", name: "Water Bottles", namebn: "পানির বোতল", icon: "fa-wine-bottle", minPrice: 800 },
-      { id: "gift-him", name: "Gift for Him", namebn: "তার জন্য গিফট", icon: "fa-male", minPrice: 1200 },
-      { id: "gift-her", name: "Gift for Her", namebn: "তার জন্য গিফট", icon: "fa-female", minPrice: 1500 },
-      { id: "gift-parents", name: "Gift for Parents", namebn: "মা-বাবার জন্য", icon: "fa-heart", minPrice: 1000 },
-      { id: "gift-babies", name: "Gifts for Babies", namebn: "শিশুদের জন্য", icon: "fa-baby", minPrice: 700 },
-      { id: "couple", name: "For Couple", namebn: "কাপলের জন্য", icon: "fa-heart", minPrice: 1100 },
-      { id: "hampers", name: "Premium Luxury Gift Hampers", namebn: "প্রিমিয়াম হ্যাম্পার", icon: "fa-gift", minPrice: 2500 },
-      { id: "chocolates-flowers", name: "Chocolates & Flowers", namebn: "চকলেট ও ফুল", icon: "fa-heart", minPrice: 1300 }
-    ];
-    res.json(categories);
-  });
-
+  app.use(appRouter)
   const httpServer = createServer(app);
   return httpServer;
 }

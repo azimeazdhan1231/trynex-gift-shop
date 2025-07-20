@@ -1,4 +1,3 @@
-
 import express from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
@@ -27,20 +26,23 @@ app.use((req, res, next) => {
   next();
 });
 
-const port = parseInt(process.env.PORT ?? "5000", 10);
+const port = parseInt(process.env.PORT || "5000");
 const isProduction = process.env.NODE_ENV === "production";
 
 async function startServer() {
   try {
     console.log("🚀 Starting server...");
 
-    // Test database connection
-    console.log("🔗 Testing Supabase database connection...");
-    try {
-      const testProducts = await storage.getProducts();
-      console.log(`✅ Supabase connected! Found ${testProducts.length} products`);
-    } catch (dbError) {
-      console.log("⚠️ Database connection test failed, but continuing...", dbError);
+    // Test database connection and seed data
+    console.log("🔗 Testing database connection...");
+    const testProducts = await storage.getProducts();
+    console.log(`✅ Database connected! Found ${testProducts.length} products`);
+    
+    // Seed database if empty
+    if (testProducts.length === 0) {
+      console.log("🌱 Database appears empty, seeding with sample data...");
+      const { seedDatabase } = await import("./seed");
+      await seedDatabase();
     }
 
     // Register routes
@@ -55,7 +57,6 @@ async function startServer() {
     server.listen(port, "0.0.0.0", () => {
       const formattedTime = new Date().toLocaleString();
       console.log(`✅ Server running on http://0.0.0.0:${port} at ${formattedTime}`);
-      console.log(`🌐 External access: https://trynex-backend-32fp.onrender.com`);
       if (!isProduction) {
         console.log(`🔧 Development mode - Vite dev server active`);
       }

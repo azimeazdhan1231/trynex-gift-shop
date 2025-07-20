@@ -1,95 +1,91 @@
-import { pgTable, text, integer, boolean, timestamp, json, uuid } from "drizzle-orm/pg-core";
+
+import { pgTable, text, integer, boolean, timestamp, jsonb, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Products table
 export const products = pgTable("products", {
-  id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
+  id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  namebn: text("name_bn").notNull(),
+  name_bn: text("name_bn"),
   description: text("description"),
-  descriptionbn: text("description_bn"),
+  description_bn: text("description_bn"),
   price: integer("price").notNull(), // Price in paisa
   category: text("category").notNull(),
-  categorybn: text("category_bn"),
-  imageUrl: text("image_url"),
-  stock: integer("stock").default(0),
-  isActive: boolean("is_active").default(true),
-  isFeatured: boolean("is_featured").default(false),
-  tags: json("tags").$type<string[]>(),
-  variants: text("variants"), // JSON string
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow()
+  category_bn: text("category_bn"),
+  image_url: text("image_url"),
+  stock: integer("stock").default(100),
+  is_active: boolean("is_active").default(true),
+  is_featured: boolean("is_featured").default(false),
+  tags: jsonb("tags").$type<string[]>(),
+  variants: jsonb("variants").$type<any>(),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow()
 });
 
 // Orders table
 export const orders = pgTable("orders", {
   id: text("id").primaryKey(),
-  orderId: text("order_id").notNull().unique(),
-  customerName: text("customer_name").notNull(),
-  customerPhone: text("customer_phone").notNull(),
-  customerEmail: text("customer_email"),
-  customerAddress: text("customer_address").notNull(),
-  deliveryLocation: text("delivery_location"),
-  paymentMethod: text("payment_method").default("cash_on_delivery"),
-  specialInstructions: text("special_instructions"),
-  promoCode: text("promo_code"),
-  items: json("items").notNull().$type<Array<{
+  order_id: text("order_id").notNull().unique(),
+  customer_name: text("customer_name").notNull(),
+  customer_phone: text("customer_phone").notNull(),
+  customer_email: text("customer_email"),
+  customer_address: text("customer_address").notNull(),
+  delivery_location: text("delivery_location"),
+  payment_method: text("payment_method").default("cash_on_delivery"),
+  special_instructions: text("special_instructions"),
+  promo_code: text("promo_code"),
+  items: jsonb("items").notNull().$type<Array<{
     id: number;
     name: string;
-    namebn: string;
+    name_bn: string;
     price: number;
     quantity: number;
     variant?: any;
   }>>(),
   subtotal: integer("subtotal").notNull(),
-  deliveryFee: integer("delivery_fee").default(0),
-  discountAmount: integer("discount_amount").default(0),
-  totalAmount: integer("total_amount").notNull(),
-  finalAmount: integer("final_amount").notNull(),
+  delivery_fee: integer("delivery_fee").default(6000),
+  discount_amount: integer("discount_amount").default(0),
+  total_amount: integer("total_amount").notNull(),
+  final_amount: integer("final_amount").notNull(),
   status: text("status").default("pending"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow()
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow()
 });
 
 // Promo codes table
-export const promoCodes = pgTable("promo_codes", {
-  id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
+export const promo_codes = pgTable("promo_codes", {
+  id: serial("id").primaryKey(),
   code: text("code").notNull().unique(),
-  discountPercentage: integer("discount_percentage").notNull(),
-  isActive: boolean("is_active").default(true),
-  expiresAt: timestamp("expires_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow()
+  discount_percentage: integer("discount_percentage").notNull(),
+  is_active: boolean("is_active").default(true),
+  expires_at: timestamp("expires_at"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow()
 });
 
-// Schemas
+// Admin users table
+export const admin_users = pgTable("admin_users", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  email: text("email"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow()
+});
+
+// Create schemas for validation
 export const insertProductSchema = createInsertSchema(products);
 export const selectProductSchema = createSelectSchema(products);
 export const insertOrderSchema = createInsertSchema(orders);
 export const selectOrderSchema = createSelectSchema(orders);
-export const insertPromoCodeSchema = createInsertSchema(promoCodes);
-export const selectPromoCodeSchema = createSelectSchema(promoCodes);
+export const insertPromoCodeSchema = createInsertSchema(promo_codes);
+export const selectPromoCodeSchema = createSelectSchema(promo_codes);
 
-// Admin users table
-export const adminUsers = pgTable("admin_users", {
-  id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  email: text("email"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow()
-});
-
-export const insertAdminUserSchema = createInsertSchema(adminUsers);
-export const selectAdminUserSchema = createSelectSchema(adminUsers);
-
-// Types
-export type Product = z.infer<typeof selectProductSchema>;
+// Export types
 export type InsertProduct = z.infer<typeof insertProductSchema>;
-export type Order = z.infer<typeof selectOrderSchema> & { total: number };
+export type Product = z.infer<typeof selectProductSchema>;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
-export type PromoCode = z.infer<typeof selectPromoCodeSchema>;
+export type Order = z.infer<typeof selectOrderSchema>;
 export type InsertPromoCode = z.infer<typeof insertPromoCodeSchema>;
-export type AdminUser = z.infer<typeof selectAdminUserSchema>;
-export type InsertAdminUser = z.infer<typeof insertAdminUserSchema>;
+export type PromoCode = z.infer<typeof selectPromoCodeSchema>;
