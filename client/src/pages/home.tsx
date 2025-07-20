@@ -17,25 +17,48 @@ export default function Home() {
     queryKey: ["products", "featured"],
     queryFn: async () => {
       const url = getApiUrl('/api/products?featured=true');
-      console.log('🎯 Fetching featured products from:', url);
+      if (import.meta.env.DEV) {
+        console.log('🎯 Fetching featured products from:', url);
+      }
       const response = await fetch(url);
       if (!response.ok) {
-        console.error('❌ Failed to fetch featured products:', response.status, response.statusText);
+        if (import.meta.env.DEV) {
+          console.error('❌ Failed to fetch featured products:', response.status, response.statusText);
+        }
         throw new Error('Failed to fetch featured products');
       }
       const data = await response.json();
-      console.log('✅ Featured products fetched successfully:', data?.length, 'products');
+      if (import.meta.env.DEV) {
+        console.log('✅ Featured products fetched successfully:', data?.length, 'products');
+      }
       return data;
-    }
+    },
+    enabled: typeof window !== 'undefined' // Only run in browser, not during SSR
   });
 
-  const { data: latestProducts } = useQuery<Product[]>({
+  const { data: latestProducts, isLoading: latestLoading, error: latestError } = useQuery<Product[]>({
     queryKey: ["products", "latest"],
     queryFn: async () => {
-      const response = await fetch(getApiUrl('/api/products?limit=8'));
-      if (!response.ok) throw new Error('Failed to fetch latest products');
-      return response.json();
-    }
+      const url = getApiUrl('/api/products?limit=8');
+      if (import.meta.env.DEV) {
+        console.log('🎯 Fetching latest products from:', url);
+      }
+      const response = await fetch(url);
+      if (!response.ok) {
+        if (import.meta.env.DEV) {
+          console.error('❌ Failed to fetch latest products:', response.status, response.statusText);
+        }
+        throw new Error('Failed to fetch latest products');
+      }
+      const data = await response.json();
+      if (import.meta.env.DEV) {
+        console.log('✅ Latest products fetched successfully:', data?.length, 'products');
+      }
+      return data;
+    },
+    enabled: typeof window !== 'undefined', // Only run in browser, not during SSR
+    retry: 1,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Fetch all products for categories
@@ -43,16 +66,23 @@ export default function Home() {
     queryKey: ["products"],
     queryFn: async () => {
       const url = getApiUrl('/api/products');
-      console.log('🎯 Fetching all products from:', url);
+      if (import.meta.env.DEV) {
+        console.log('🎯 Fetching all products from:', url);
+      }
       const response = await fetch(url);
       if (!response.ok) {
-        console.error('❌ Failed to fetch all products:', response.status, response.statusText);
+        if (import.meta.env.DEV) {
+          console.error('❌ Failed to fetch all products:', response.status, response.statusText);
+        }
         throw new Error('Failed to fetch products');
       }
       const data = await response.json();
-      console.log('✅ All products fetched successfully:', data?.length, 'products');
+      if (import.meta.env.DEV) {
+        console.log('✅ All products fetched successfully:', data?.length, 'products');
+      }
       return data;
-    }
+    },
+    enabled: typeof window !== 'undefined' // Only run in browser, not during SSR
   });
 
   return (
@@ -119,9 +149,28 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {latestProducts?.slice(0, 8).map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+            {latestLoading ? (
+              // Loading skeleton
+              Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="bg-white rounded-xl shadow-lg p-4 animate-pulse">
+                  <div className="bg-gray-300 h-48 rounded-lg mb-4"></div>
+                  <div className="bg-gray-300 h-4 rounded mb-2"></div>
+                  <div className="bg-gray-300 h-6 rounded w-20"></div>
+                </div>
+              ))
+            ) : latestError ? (
+              <div className="col-span-full text-center py-8">
+                <p className="text-red-500">Failed to load latest products. Please try again later.</p>
+              </div>
+            ) : latestProducts && latestProducts.length > 0 ? (
+              latestProducts.slice(0, 8).map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))
+            ) : (
+              <div className="col-span-full text-center py-8">
+                <p className="text-gray-500">No products available at the moment.</p>
+              </div>
+            )}
           </div>
 
           <div className="text-center">
@@ -164,9 +213,28 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {featuredProducts?.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+            {featuredLoading ? (
+              // Loading skeleton
+              Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="bg-white rounded-xl shadow-lg p-4 animate-pulse">
+                  <div className="bg-gray-300 h-48 rounded-lg mb-4"></div>
+                  <div className="bg-gray-300 h-4 rounded mb-2"></div>
+                  <div className="bg-gray-300 h-6 rounded w-20"></div>
+                </div>
+              ))
+            ) : featuredError ? (
+              <div className="col-span-full text-center py-8">
+                <p className="text-red-500">Failed to load featured products. Please try again later.</p>
+              </div>
+            ) : featuredProducts && featuredProducts.length > 0 ? (
+              featuredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))
+            ) : (
+              <div className="col-span-full text-center py-8">
+                <p className="text-gray-500">No featured products available at the moment.</p>
+              </div>
+            )}
           </div>
 
           <div className="text-center">

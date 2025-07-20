@@ -1,51 +1,31 @@
-
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
-// Helper function to load Replit plugins only in development
-async function getReplitPlugins() {
-  if (process.env.NODE_ENV === "production" || !process.env.REPL_ID) {
-    return [];
-  }
-  
-  try {
-    const [errorModal, cartographer] = await Promise.all([
-      import("@replit/vite-plugin-runtime-error-modal").then(m => m.default()),
-      import("@replit/vite-plugin-cartographer").then(m => m.cartographer()),
-    ]);
-    return [errorModal, cartographer];
-  } catch (error) {
-    console.warn("Replit plugins not available:", error);
-    return [];
-  }
-}
-
-export default defineConfig(async () => {
-  const replitPlugins = await getReplitPlugins();
-  
-  return {
-    plugins: [
-      react(),
-      ...replitPlugins,
-    ],
-    resolve: {
-      alias: {
-        "@": path.resolve(import.meta.dirname, "client", "src"),
-        "@shared": path.resolve(import.meta.dirname, "shared"),
-        "@assets": path.resolve(import.meta.dirname, "attached_assets"),
+export default defineConfig(({ mode }) => ({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./client/src"),
+      "@shared": path.resolve(__dirname, "./shared"),
+    },
+  },
+  root: "./client",
+  server: {
+    host: "0.0.0.0",
+    port: 5000,
+    proxy: mode === 'development' ? {
+      "/api": {
+        target: "http://0.0.0.0:3001",
+        changeOrigin: true,
       },
+    } : undefined,
+  },
+  build: {
+    outDir: "../dist/public",
+    emptyOutDir: true,
+    rollupOptions: {
+      input: path.resolve(__dirname, "client/index.html"),
     },
-    root: path.resolve(import.meta.dirname, "client"),
-    build: {
-      outDir: path.resolve(import.meta.dirname, "dist/public"),
-      emptyOutDir: true,
-    },
-    server: {
-      fs: {
-        strict: true,
-        deny: ["**/.*"],
-      },
-    },
-  };
-});
+  },
+}));
